@@ -322,6 +322,63 @@ class SimulatorHTTPHandler(http.server.BaseHTTPRequestHandler):
                 pass
             return
 
+        elif self.path == "/camera_feed" or self.path == "/stream":
+            self.send_response(200)
+            self.send_header("Content-Type", "multipart/x-mixed-replace; boundary=frame")
+            self.send_header("Cache-Control", "no-cache")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+
+            try:
+                from PIL import Image, ImageDraw, ImageFont
+                import io
+
+                width, height = 480, 320
+                while True:
+                    with state_lock:
+                        throt = device_state["throttle"]
+                        steer = device_state["steering"]
+                        s1 = device_state.get("s1", 90)
+                        s2 = device_state.get("s2", 90)
+                        light = device_state["lights"]
+
+                    img = Image.new("RGB", (width, height), (15, 20, 35))
+                    draw = ImageDraw.Draw(img)
+
+                    # Artificial Horizon / Ground
+                    horizon_y = height // 2 - int(throt * 0.8)
+                    roll_offset = int(steer * 0.8)
+                    draw.polygon([(0, horizon_y + roll_offset), (width, horizon_y - roll_offset), (width, height), (0, height)], fill=(10, 30, 20))
+                    draw.line([(0, horizon_y + roll_offset), (width, horizon_y - roll_offset)], fill=(0, 229, 255), width=2)
+
+                    # Crosshair / HUD
+                    cx, cy = width // 2, height // 2
+                    draw.line([(cx - 25, cy), (cx + 25, cy)], fill=(0, 255, 136), width=2)
+                    draw.line([(cx, cy - 25), (cx, cy + 25)], fill=(0, 255, 136), width=2)
+                    draw.ellipse([(cx - 15, cy - 15), (cx + 15, cy + 15)], outline=(0, 255, 136), width=1)
+
+                    # Telemetry Text
+                    now_str = datetime.datetime.now().strftime("%H:%M:%S.%f")[:-4]
+                    draw.text((10, 10), f"OmniRC FPV Sim [{now_str}]", fill=(0, 229, 255))
+                    draw.text((10, 30), f"Throttle: {throt}% | Steering: {steer}%", fill=(255, 255, 255))
+                    draw.text((10, 50), f"Servos: S1={s1} S2={s2} | Farol: {'LIGADO' if light else 'DESLIGADO'}", fill=(255, 184, 0))
+                    draw.text((width - 110, 10), "STREAM LIVE", fill=(0, 255, 136))
+
+                    buf = io.BytesIO()
+                    img.save(buf, format="JPEG", quality=75)
+                    jpeg_bytes = buf.getvalue()
+
+                    part = (b"--frame\r\n"
+                            b"Content-Type: image/jpeg\r\n"
+                            b"Content-Length: " + str(len(jpeg_bytes)).encode() + b"\r\n\r\n" +
+                            jpeg_bytes + b"\r\n")
+                    self.wfile.write(part)
+                    self.wfile.flush()
+                    time.sleep(0.06) # ~16 FPS
+            except Exception:
+                pass
+            return
+
         self.send_response(404)
         self.end_headers()
 

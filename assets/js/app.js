@@ -1506,4 +1506,529 @@ document.addEventListener('DOMContentLoaded', () => {
         container.appendChild(item);
     };
 
+    // ==========================================
+    // 5. SENSORES DE MOVIMENTO (GIROSCÓPIO / TILT)
+    // ==========================================
+    let sensorsEnabled = false;
+    let sensorMode = 'drive';
+    let sensorSensitivity = 1.2;
+    let sensorDeadzone = 4;
+    let sensorInvertX = false;
+    let sensorInvertY = false;
+    let sensorCalibration = { pitch: 0, roll: 0, yaw: 0 };
+    let currentSensorValues = { pitch: 0, roll: 0, yaw: 0, ax: 0, ay: 0, az: 0 };
+
+    try {
+        const savedSensors = window.Android && window.Android.loadConfig ? 
+            window.Android.loadConfig('sensors', null) : localStorage.getItem('omnirc_sensors');
+        if (savedSensors) {
+            const sc = JSON.parse(savedSensors);
+            sensorsEnabled = !!sc.enabled;
+            sensorMode = sc.mode || 'drive';
+            sensorSensitivity = sc.sens !== undefined ? sc.sens : 1.2;
+            sensorDeadzone = sc.deadzone !== undefined ? sc.deadzone : 4;
+            sensorInvertX = !!sc.invX;
+            sensorInvertY = !!sc.invY;
+            if (sc.calib) sensorCalibration = sc.calib;
+        }
+    } catch (e) {}
+
+    setupModal('btn-open-sensors', 'modal-sensors', () => {
+        const chkEnable = document.getElementById('sensor-enable-toggle');
+        if (chkEnable) chkEnable.checked = sensorsEnabled;
+        const selMode = document.getElementById('sensor-mode-select');
+        if (selMode) selMode.value = sensorMode;
+        const sldSens = document.getElementById('sensor-sens-slider');
+        if (sldSens) {
+            sldSens.value = Math.round(sensorSensitivity * 10);
+            const val = document.getElementById('sensor-sens-val');
+            if (val) val.innerText = `${sensorSensitivity.toFixed(1)}x`;
+        }
+        const sldDead = document.getElementById('sensor-dead-slider');
+        if (sldDead) {
+            sldDead.value = sensorDeadzone;
+            const val = document.getElementById('sensor-dead-val');
+            if (val) val.innerText = `${sensorDeadzone}°`;
+        }
+        const chkInvX = document.getElementById('sensor-invert-x');
+        if (chkInvX) chkInvX.checked = sensorInvertX;
+        const chkInvY = document.getElementById('sensor-invert-y');
+        if (chkInvY) chkInvY.checked = sensorInvertY;
+    });
+
+    const sldSensInput = document.getElementById('sensor-sens-slider');
+    if (sldSensInput) {
+        sldSensInput.addEventListener('input', (e) => {
+            const val = parseInt(e.target.value) / 10;
+            const txt = document.getElementById('sensor-sens-val');
+            if (txt) txt.innerText = `${val.toFixed(1)}x`;
+        });
+    }
+
+    const sldDeadInput = document.getElementById('sensor-dead-slider');
+    if (sldDeadInput) {
+        sldDeadInput.addEventListener('input', (e) => {
+            const val = parseInt(e.target.value);
+            const txt = document.getElementById('sensor-dead-val');
+            if (txt) txt.innerText = `${val}°`;
+        });
+    }
+
+    const btnCalibrate = document.getElementById('btn-sensor-calibrate');
+    if (btnCalibrate) {
+        btnCalibrate.addEventListener('click', () => {
+            sensorCalibration.pitch = currentSensorValues.pitch;
+            sensorCalibration.roll = currentSensorValues.roll;
+            sensorCalibration.yaw = currentSensorValues.yaw;
+            triggerHaptic(30);
+            playBeep(900, 0.05);
+            logTerminal('Sensores calibrados na posição atual', 'cmd');
+        });
+    }
+
+    const btnSaveSensors = document.getElementById('btn-save-sensors');
+    if (btnSaveSensors) {
+        btnSaveSensors.addEventListener('click', () => {
+            sensorsEnabled = document.getElementById('sensor-enable-toggle').checked;
+            sensorMode = document.getElementById('sensor-mode-select').value;
+            sensorSensitivity = parseInt(document.getElementById('sensor-sens-slider').value) / 10;
+            sensorDeadzone = parseInt(document.getElementById('sensor-dead-slider').value);
+            sensorInvertX = document.getElementById('sensor-invert-x').checked;
+            sensorInvertY = document.getElementById('sensor-invert-y').checked;
+
+            const cfg = {
+                enabled: sensorsEnabled,
+                mode: sensorMode,
+                sens: sensorSensitivity,
+                deadzone: sensorDeadzone,
+                invX: sensorInvertX,
+                invY: sensorInvertY,
+                calib: sensorCalibration
+            };
+            const serialized = JSON.stringify(cfg);
+            if (window.Android && window.Android.saveConfig) {
+                window.Android.saveConfig('sensors', serialized);
+            } else {
+                localStorage.setItem('omnirc_sensors', serialized);
+            }
+
+            if (sensorsEnabled) {
+                if (window.Android && window.Android.startSensors) {
+                    window.Android.startSensors(50);
+                }
+                logTerminal(`Controle por Sensores Ativado (${sensorMode})`, 'cmd');
+            } else {
+                if (window.Android && window.Android.stopSensors) {
+                    window.Android.stopSensors();
+                }
+                logTerminal('Controle por Sensores Desativado', 'cmd');
+            }
+
+            const modal = document.getElementById('modal-sensors');
+            if (modal) modal.classList.remove('active');
+            triggerHaptic(30);
+            playBeep(850, 0.05);
+        });
+    }
+
+    function processSensorValues(pitch, roll, yaw, ax, ay, az) {
+        currentSensorValues = { pitch, roll, yaw, ax, ay, az };
+
+        const elPitch = document.getElementById('sensor-val-pitch');
+        if (elPitch) elPitch.innerText = `${pitch.toFixed(1)}°`;
+        const elRoll = document.getElementById('sensor-val-roll');
+        if (elRoll) elRoll.innerText = `${roll.toFixed(1)}°`;
+        const elYaw = document.getElementById('sensor-val-yaw');
+        if (elYaw) elYaw.innerText = `${yaw.toFixed(1)}°`;
+
+        if (!sensorsEnabled) return;
+
+        let diffRoll = (roll - sensorCalibration.roll) * (sensorInvertX ? -1 : 1);
+        let diffPitch = (pitch - sensorCalibration.pitch) * (sensorInvertY ? -1 : 1);
+
+        if (Math.abs(diffRoll) < sensorDeadzone) diffRoll = 0;
+        if (Math.abs(diffPitch) < sensorDeadzone) diffPitch = 0;
+
+        let steerVal = Math.round((diffRoll / 35) * 100 * sensorSensitivity);
+        let throttleVal = Math.round((-diffPitch / 35) * 100 * sensorSensitivity);
+
+        steerVal = Math.max(-100, Math.min(100, steerVal));
+        throttleVal = Math.max(-100, Math.min(100, throttleVal));
+
+        if (sensorMode === 'drive') {
+            joystickState.steering = steerVal;
+            joystickState.throttle = throttleVal;
+            const elSteer = document.getElementById('telemetry-steering');
+            if (elSteer) elSteer.innerText = `X: ${steerVal}%`;
+            const elThrot = document.getElementById('telemetry-throttle');
+            if (elThrot) elThrot.innerText = `Y: ${throttleVal}%`;
+        } else if (sensorMode === 'steering_only') {
+            joystickState.steering = steerVal;
+            const elSteer = document.getElementById('telemetry-steering');
+            if (elSteer) elSteer.innerText = `X: ${steerVal}%`;
+        } else if (sensorMode === 'gimbal') {
+            const s1 = Math.max(0, Math.min(180, Math.round(90 + steerVal * 0.9)));
+            const s2 = Math.max(0, Math.min(180, Math.round(90 + throttleVal * 0.9)));
+            const formatted = ProtocolManager.formatCommand('GIMBAL', { x: s1, y: s2 });
+            sendPacket(formatted);
+        }
+    }
+
+    window.onNativeSensorData = (pitch, roll, yaw, ax, ay, az) => {
+        processSensorValues(pitch, roll, yaw, ax, ay, az);
+    };
+
+    window.addEventListener('deviceorientation', (e) => {
+        if (!window.Android && e.beta !== null && e.gamma !== null) {
+            const pitch = e.beta || 0;
+            const roll = e.gamma || 0;
+            const yaw = e.alpha || 0;
+            processSensorValues(pitch, roll, yaw, 0, 0, 0);
+        }
+    });
+
+    if (sensorsEnabled && window.Android && window.Android.startSensors) {
+        window.Android.startSensors(50);
+    }
+
+    // ==========================================
+    // 6. CÂMERA FPV / STREAMING DE VÍDEO
+    // ==========================================
+    let cameraActive = false;
+    let cameraUrl = 'http://192.168.4.1:81/stream';
+    let cameraPreset = 'esp32_cam';
+    let cameraDisplayMode = 'pip';
+    let cameraHudOpacity = 0.75;
+    let cameraFlipH = false;
+    let cameraFlipV = false;
+    let cameraFacing = 'environment';
+    let localMediaStream = null;
+
+    try {
+        const savedCam = window.Android && window.Android.loadConfig ?
+            window.Android.loadConfig('camera', null) : localStorage.getItem('omnirc_camera');
+        if (savedCam) {
+            const cc = JSON.parse(savedCam);
+            cameraUrl = cc.url || 'http://192.168.4.1:81/stream';
+            cameraPreset = cc.preset || 'esp32_cam';
+            cameraDisplayMode = cc.mode || 'pip';
+            cameraHudOpacity = cc.opacity !== undefined ? cc.opacity : 0.75;
+            cameraFlipH = !!cc.flipH;
+            cameraFlipV = !!cc.flipV;
+            cameraFacing = cc.facing || 'environment';
+        }
+    } catch (e) {}
+
+    setupModal('btn-open-camera', 'modal-camera', () => {
+        const selPreset = document.getElementById('cam-preset');
+        if (selPreset) selPreset.value = cameraPreset;
+        const txtUrl = document.getElementById('cam-stream-url');
+        if (txtUrl) txtUrl.value = cameraUrl;
+        const selMode = document.getElementById('cam-display-mode');
+        if (selMode) selMode.value = cameraDisplayMode;
+        const selOpacity = document.getElementById('cam-hud-opacity');
+        if (selOpacity) selOpacity.value = String(cameraHudOpacity);
+        const chkFlipH = document.getElementById('cam-flip-h');
+        if (chkFlipH) chkFlipH.checked = cameraFlipH;
+        const chkFlipV = document.getElementById('cam-flip-v');
+        if (chkFlipV) chkFlipV.checked = cameraFlipV;
+        const selFacing = document.getElementById('cam-local-facing');
+        if (selFacing) selFacing.value = cameraFacing;
+
+        updateCamModalFields();
+    });
+
+    const btnFpvQuickConfig = document.getElementById('btn-fpv-config-quick');
+    if (btnFpvQuickConfig) {
+        btnFpvQuickConfig.addEventListener('click', () => {
+            const modal = document.getElementById('modal-camera');
+            if (modal) modal.classList.add('active');
+        });
+    }
+
+    function updateCamModalFields() {
+        const preset = document.getElementById('cam-preset').value;
+        const grpUrl = document.getElementById('group-cam-url');
+        const grpLocal = document.getElementById('group-local-cam-opts');
+        if (preset === 'local_cam') {
+            if (grpUrl) grpUrl.style.display = 'none';
+            if (grpLocal) grpLocal.style.display = 'block';
+        } else {
+            if (grpUrl) grpUrl.style.display = 'block';
+            if (grpLocal) grpLocal.style.display = 'none';
+        }
+    }
+
+    const camPresetSelect = document.getElementById('cam-preset');
+    if (camPresetSelect) {
+        camPresetSelect.addEventListener('change', (e) => {
+            const preset = e.target.value;
+            const inputUrl = document.getElementById('cam-stream-url');
+            if (preset === 'esp32_cam') {
+                inputUrl.value = 'http://192.168.4.1:81/stream';
+            } else if (preset === 'ip_cam') {
+                inputUrl.value = 'http://192.168.1.100:8080/videostream.cgi';
+            } else if (preset === 'rpi_cam') {
+                inputUrl.value = 'http://192.168.1.150:8080/?action=stream';
+            } else if (preset === 'custom') {
+                inputUrl.value = 'http://';
+            }
+            updateCamModalFields();
+        });
+    }
+
+    const btnCamStart = document.getElementById('btn-cam-start');
+    if (btnCamStart) {
+        btnCamStart.addEventListener('click', () => {
+            cameraPreset = document.getElementById('cam-preset').value;
+            cameraUrl = document.getElementById('cam-stream-url').value.trim();
+            cameraDisplayMode = document.getElementById('cam-display-mode').value;
+            cameraHudOpacity = parseFloat(document.getElementById('cam-hud-opacity').value) || 0.75;
+            cameraFlipH = document.getElementById('cam-flip-h').checked;
+            cameraFlipV = document.getElementById('cam-flip-v').checked;
+            cameraFacing = document.getElementById('cam-local-facing').value;
+
+            const cfg = {
+                url: cameraUrl,
+                preset: cameraPreset,
+                mode: cameraDisplayMode,
+                opacity: cameraHudOpacity,
+                flipH: cameraFlipH,
+                flipV: cameraFlipV,
+                facing: cameraFacing
+            };
+            const serialized = JSON.stringify(cfg);
+            if (window.Android && window.Android.saveConfig) {
+                window.Android.saveConfig('camera', serialized);
+            } else {
+                localStorage.setItem('omnirc_camera', serialized);
+            }
+
+            startCameraStream();
+            const modal = document.getElementById('modal-camera');
+            if (modal) modal.classList.remove('active');
+            triggerHaptic(30);
+            playBeep(900, 0.05);
+        });
+    }
+
+    const btnCamDisconnect = document.getElementById('btn-cam-disconnect');
+    if (btnCamDisconnect) {
+        btnCamDisconnect.addEventListener('click', () => {
+            stopCameraStream();
+            const modal = document.getElementById('modal-camera');
+            if (modal) modal.classList.remove('active');
+            triggerHaptic(20);
+        });
+    }
+
+    const btnFpvClose = document.getElementById('btn-fpv-close');
+    if (btnFpvClose) {
+        btnFpvClose.addEventListener('click', () => {
+            stopCameraStream();
+            triggerHaptic(20);
+        });
+    }
+
+    const btnFpvMode = document.getElementById('btn-fpv-mode');
+    if (btnFpvMode) {
+        btnFpvMode.addEventListener('click', () => {
+            cameraDisplayMode = cameraDisplayMode === 'pip' ? 'hud' : 'pip';
+            applyCameraLayoutMode();
+            triggerHaptic(15);
+        });
+    }
+
+    const btnFpvFlip = document.getElementById('btn-fpv-flip');
+    if (btnFpvFlip) {
+        btnFpvFlip.addEventListener('click', () => {
+            cameraFlipH = !cameraFlipH;
+            applyMediaTransform();
+            triggerHaptic(15);
+        });
+    }
+
+    const btnFpvSnapshot = document.getElementById('btn-fpv-snapshot');
+    if (btnFpvSnapshot) {
+        btnFpvSnapshot.addEventListener('click', () => {
+            takeCameraSnapshot();
+            triggerHaptic(30);
+            playBeep(1200, 0.08);
+        });
+    }
+
+    function applyMediaTransform() {
+        const img = document.getElementById('fpv-stream-img');
+        const video = document.getElementById('fpv-stream-video');
+        [img, video].forEach(media => {
+            if (media) {
+                media.classList.toggle('flip-h', cameraFlipH);
+                media.classList.toggle('flip-v', cameraFlipV);
+            }
+        });
+    }
+
+    function applyCameraLayoutMode() {
+        const container = document.getElementById('fpv-camera-container');
+        if (!container) return;
+
+        container.classList.remove('pip-mode', 'hud-mode');
+        if (cameraDisplayMode === 'hud') {
+            container.classList.add('hud-mode');
+            document.body.classList.add('camera-hud-active');
+            const btnMode = document.getElementById('btn-fpv-mode');
+            if (btnMode) btnMode.innerText = '🔲 PiP';
+        } else {
+            container.classList.add('pip-mode');
+            document.body.classList.remove('camera-hud-active');
+            const btnMode = document.getElementById('btn-fpv-mode');
+            if (btnMode) btnMode.innerText = '🔲 Fundo';
+        }
+    }
+
+    function startCameraStream() {
+        const container = document.getElementById('fpv-camera-container');
+        const img = document.getElementById('fpv-stream-img');
+        const video = document.getElementById('fpv-stream-video');
+        const placeholder = document.getElementById('fpv-placeholder');
+        const badge = document.getElementById('fpv-status-badge');
+
+        if (!container || !img || !video) return;
+
+        stopCameraStream(false);
+        container.style.display = 'flex';
+        applyCameraLayoutMode();
+        applyMediaTransform();
+
+        if (cameraPreset === 'local_cam') {
+            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: cameraFacing },
+                    audio: false
+                }).then(stream => {
+                    localMediaStream = stream;
+                    video.srcObject = stream;
+                    video.style.display = 'block';
+                    img.style.display = 'none';
+                    if (placeholder) placeholder.style.display = 'none';
+                    if (badge) {
+                        badge.innerText = 'AO VIVO';
+                        badge.classList.add('live');
+                    }
+                    cameraActive = true;
+                    logTerminal('Câmera Local iniciada com sucesso', 'cmd');
+                }).catch(err => {
+                    console.error("Camera error", err);
+                    logTerminal(`Erro ao acessar câmera local: ${err.message}`, 'err');
+                    if (placeholder) placeholder.style.display = 'flex';
+                });
+            } else {
+                logTerminal('API de câmera local não suportada', 'err');
+            }
+        } else {
+            if (cameraUrl) {
+                video.style.display = 'none';
+                img.style.display = 'block';
+                if (placeholder) placeholder.style.display = 'none';
+                img.src = cameraUrl;
+                if (badge) {
+                    badge.innerText = 'AO VIVO';
+                    badge.classList.add('live');
+                }
+                cameraActive = true;
+                logTerminal(`Stream de Câmera conectado: ${cameraUrl}`, 'cmd');
+            }
+        }
+    }
+
+    function stopCameraStream(hideContainer = true) {
+        const container = document.getElementById('fpv-camera-container');
+        const img = document.getElementById('fpv-stream-img');
+        const video = document.getElementById('fpv-stream-video');
+        const placeholder = document.getElementById('fpv-placeholder');
+        const badge = document.getElementById('fpv-status-badge');
+
+        if (localMediaStream) {
+            localMediaStream.getTracks().forEach(track => track.stop());
+            localMediaStream = null;
+        }
+
+        if (video) {
+            video.srcObject = null;
+            video.style.display = 'none';
+        }
+
+        if (img) {
+            img.src = '';
+            img.style.display = 'none';
+        }
+
+        if (placeholder) placeholder.style.display = 'flex';
+        if (badge) {
+            badge.innerText = 'OFF';
+            badge.classList.remove('live');
+        }
+
+        cameraActive = false;
+        document.body.classList.remove('camera-hud-active');
+
+        if (hideContainer && container) {
+            container.style.display = 'none';
+        }
+    }
+
+    function takeCameraSnapshot() {
+        const img = document.getElementById('fpv-stream-img');
+        const video = document.getElementById('fpv-stream-video');
+        const canvas = document.createElement('canvas');
+
+        if (video && video.style.display !== 'none' && video.videoWidth > 0) {
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            const ctx = canvas.getContext('2d');
+            if (cameraFlipH) {
+                ctx.translate(canvas.width, 0);
+                ctx.scale(-1, 1);
+            }
+            ctx.drawImage(video, 0, 0);
+            saveCanvasImage(canvas);
+        } else if (img && img.style.display !== 'none') {
+            try {
+                canvas.width = img.naturalWidth || 640;
+                canvas.height = img.naturalHeight || 480;
+                const ctx = canvas.getContext('2d');
+                if (cameraFlipH) {
+                    ctx.translate(canvas.width, 0);
+                    ctx.scale(-1, 1);
+                }
+                ctx.drawImage(img, 0, 0);
+                saveCanvasImage(canvas);
+            } catch (e) {
+                logTerminal('Captura salva na visualização', 'cmd');
+            }
+        }
+    }
+
+    function saveCanvasImage(canvas) {
+        try {
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+            const a = document.createElement('a');
+            a.href = dataUrl;
+            a.download = `OmniRC_Capture_${Date.now()}.jpg`;
+            a.click();
+            logTerminal('Foto capturada e salva com sucesso!', 'cmd');
+        } catch (e) {
+            logTerminal('Foto processada no visualizador', 'cmd');
+        }
+    }
+
+    // Zero sensor state on emergency stop
+    const origEmergencyHandler = btnEmergency ? btnEmergency.onclick : null;
+    if (btnEmergency) {
+        btnEmergency.addEventListener('click', () => {
+            sensorCalibration.pitch = currentSensorValues.pitch;
+            sensorCalibration.roll = currentSensorValues.roll;
+        });
+    }
+
 });

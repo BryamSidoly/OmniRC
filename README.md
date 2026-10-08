@@ -8,8 +8,9 @@ O sistema opera com comunicação em tempo real via **Wi-Fi** (UDP, TCP Socket e
 
 ## 📦 APK Compilado e Instalação Rápida
 
-* **Download Direto:** [OmniRC-Remote.apk (GitHub Releases)](https://github.com/BryamSidoly/OmniRC/releases/download/v1.0.0/OmniRC-Remote.apk)
-* **Arquivo no Repositório:** `OmniRC-Remote.apk` (~78 KB)
+* **Download Direto:** [OmniRC-Remote.apk (GitHub Releases v1.1.0)](https://github.com/BryamSidoly/OmniRC/releases/download/v1.1.0/OmniRC-Remote.apk)
+* **Arquivo no Repositório:** `OmniRC-Remote.apk` (~91 KB)
+* **Versão:** v1.1.0 (Build 2)
 * **Assinatura:** APK Signature Scheme v1, v2 e v3 (compatível do Android 5.0 Lollipop ao Android 14+)
 
 ### Como Instalar no Celular:
@@ -237,6 +238,82 @@ No menu de layouts, selecione **🎨 Layout Personalizado**. Você pode montar u
 
 ---
 
+## 🧭 Controle por Sensores do Celular (Acelerômetro, Giroscópio & Tilt Control)
+
+O OmniRC transforma o seu smartphone em um volante e acelerador por movimento utilizando os sensores inerciais físicos (**Acelerômetro e Giroscópio**) do Android:
+
+```mermaid
+flowchart LR
+    Sensors["Sensores Físicos\n(Acelerômetro + Giroscópio)"] --> Java["WebAppInterface.java\n(SensorManager 50ms)"]
+    Java --> Calib["Motor de Calibração\n(Zero Offset & Deadzone)"]
+    Calib --> Mode{"Modo de Pilotagem"}
+    Mode -->|"Direção + Acelerador"| Drive["X = Roll (Volante)\nY = Pitch (Acelerador)"]
+    Mode -->|"Somente Direção"| Steer["X = Roll (Volante)\nY = Toque na Tela"]
+    Mode -->|"Gimbal / Câmera"| Gimbal["X = Yaw / Pan\nY = Pitch / Tilt"]
+    Drive --> Proto["Motor de Protocolos\n(Envio UDP / BLE / SPP)"]
+    Steer --> Proto
+    Gimbal --> Proto
+```
+
+### 📐 Recursos do Controlador de Sensores:
+1. **Acesso Nativo de Baixa Latência:** A camada Java (`WebAppInterface.java`) registra listeners nos sensores inerciais físicos (`TYPE_ACCELEROMETER` e `TYPE_GYROSCOPE`) com taxa contínua de 50 ms despachados diretamente ao JavaScript (`window.onNativeSensorData`).
+2. **Fallback Universal:** Caso executado em navegadores web ou simuladores de PC, o motor chaveia automaticamente para a API HTML5 `DeviceOrientationEvent` e `DeviceMotionEvent`.
+3. **Calibração de Zero ("Zerar"):** Um botão dedicado grava a postura atual das suas mãos como referência $(0^\circ, 0^\circ)$, permitindo pilotar deitado na cama, sentado à mesa ou segurando o celular em qualquer ângulo com conforto ergonômico.
+4. **Filtro de Zona Morta (Deadzone):** Descarta vibrações musculares e micro-tremores (configurável de 2° a 20°).
+5. **Multiplicador de Sensibilidade:** Ajustável de $0.2\times$ a $3.0\times$, permitindo controle cirúrgico para veículos velozes ou giro rápido para drift.
+6. **Modos de Pilotagem:**
+   - **🏎️ Direção + Acelerador (Pitch + Roll):** Inclinar para os lados esterça o volante ($X$); inclinar para frente/trás acelera ou freia ($Y$).
+   - **🔄 Somente Direção (Roll):** Esterçamento por inclinação como um volante esportivo real, mantendo aceleração e frenagem sob o controle do polegar no analógico ou botões.
+   - **🎥 Gimbal / Câmera 2 Eixos (Pan / Tilt):** Controla a movimentação de uma câmera ou torre com a orientação do aparelho.
+
+---
+
+## 📹 Integração com Câmeras FPV, Câmeras IP e Embarcadas
+
+O OmniRC integra transmissão de vídeo em tempo real (FPV - *First Person View*) diretamente na tela de controle, eliminando a necessidade de alternar aplicativos durante a pilotagem.
+
+```mermaid
+flowchart TD
+    CamFeed["Fluxo de Vídeo FPV\n(MJPEG / WebRTC / JPEG)"] --> DisplayMode{"Modo de Visualização"}
+    DisplayMode -->|"Cockpit HUD"| HUD["Fundo de Tela Dinâmico\nControles Translúcidos Sobrepostos"]
+    DisplayMode -->|"Picture-in-Picture"| PiP["Janela Flutuante PiP\nCanto da Tela Redimensionável"]
+    
+    subgraph Cameras ["Fontes de Câmera Suportadas"]
+        ESP32CAM["ESP32-CAM (OV2640)\nhttp://ip:81/stream"]
+        Yoosee["Yoosee / Câmeras IP ONVIF\nFluxos MJPEG / Snapshot HTTP"]
+        RPi["Raspberry Pi / Jetson\nFlask MJPEG / Picamera"]
+        Local["Câmera Nativa do Celular\nFrontal / Traseira via WebRTC"]
+        Sim["Simulador Desktop\nhttp://localhost:5500/camera_feed"]
+    end
+    
+    Cameras --> CamFeed
+```
+
+### 📡 Fontes de Vídeo e Câmeras Compatíveis:
+1. **ESP32-CAM (Módulo OV2640):**
+   - Stream HTTP MJPEG nativo na porta 81 (ex: `http://192.168.4.1:81/stream` ou `http://192.168.1.150:81/stream`).
+   - Suporte a fotos de alta resolução via `/jpg` ou `/capture`.
+2. **Câmeras IP / Wi-Fi Residenciais (Yoosee, ICSee, ONVIF, Intelbras, TP-Link):**
+   - Transmissão via endpoint HTTP MJPEG local ou bridges RTSP para HTTP/MJPEG (ex: `http://192.168.1.50:8080/videostream.cgi`).
+   - Requisições diretas de snapshots JPEG contínuos em alta taxa (`http://192.168.1.50/snapshot.jpg`).
+3. **Raspberry Pi / Jetson Nano / PC Linux:**
+   - Câmeras Picamera ou Webcams USB via `mjpg-streamer`, `Flask` micro-server ou `OpenCV` (ver exemplo [`examples/raspberry_pi/rpi_rc_car_camera.py`](file:///C:/Users/Bryan/.gemini/antigravity/scratch/OmniRC/examples/raspberry_pi/rpi_rc_car_camera.py)).
+4. **Câmera Local do Smartphone (WebRTC):**
+   - Ativação instantânea das lentes frontal ou traseira do próprio celular com permissão automática (`CAMERA` nativa do Android no WebView).
+   - Perfeito para montar um celular antigo fixado em cima do robô transmitindo o trajeto.
+5. **Simulador Desktop (`rc_device_server.py`):**
+   - Stream sintético de painel HUD gerado em Python em `http://localhost:5500/camera_feed`.
+
+### 🖥️ Modos de Exibição e Recursos Visuais:
+* **Cockpit HUD (Fundo de Tela Dinâmico):** O vídeo preenche todo o fundo do aplicativo com controles translúcidos sobrepostos estilo visor de caça aéreo militar (Heads-Up Display).
+* **PiP (Picture-in-Picture):** Janela flutuante no canto superior da tela com botões de fechar e expansão.
+* **Controles Rápidos:**
+  - 🔄 **Espelhar Horizontal:** Inverte o feed da câmera para manter a referência correta ao olhar para trás.
+  - ↕️ **Espelhar Vertical:** Corrige a imagem caso o módulo da câmera esteja instalado de cabeça para baixo no chassi do veículo.
+  - 📸 **Captura de Tela (Snapshot):** Salva fotos do trajeto instantaneamente com carimbo de data e hora.
+
+---
+
 ## 🧪 Ambiente de Testes e Simulação no Windows
 
 * **Simulador Completo com Dashboard Web (`rc_device_server.py`):**
@@ -252,85 +329,104 @@ No menu de layouts, selecione **🎨 Layout Personalizado**. Você pode montar u
 
 ## 💻 Exemplos de Código para Receptores Embarcados
 
-### 1. ESP32 com Wi-Fi UDP e Watchdog de Segurança (Fail-Safe)
+O diretório [`examples/`](file:///C:/Users/Bryan/.gemini/antigravity/scratch/OmniRC/examples) inclui implementações completas, prontas para gravar e testadas para as principais placas de desenvolvimento do mercado, cobrindo C++, Python e MicroPython:
+
+| Plataforma / Placa | Arquivo no Repositório | Protocolo / Meio | Linguagem | Destaques |
+| :--- | :--- | :--- | :--- | :--- |
+| **ESP32 DevKit** | [`esp32_wifi_udp_car.ino`](file:///C:/Users/Bryan/.gemini/antigravity/scratch/OmniRC/examples/esp32/esp32_wifi_udp_car.ino) | Wi-Fi UDP (8888) | C++ (Arduino) | Fail-Safe Watchdog, Tração Diferencial, Telemetria |
+| **ESP32 DevKit** | [`esp32_bluetooth_spp.ino`](file:///C:/Users/Bryan/.gemini/antigravity/scratch/OmniRC/examples/esp32/esp32_bluetooth_spp.ino) | Bluetooth Classic SPP | C++ (Arduino) | Porta Serial RFCOMM sem fio, reconexão rápida |
+| **ESP32 DevKit** | [`esp32_ble_uart.ino`](file:///C:/Users/Bryan/.gemini/antigravity/scratch/OmniRC/examples/esp32/esp32_ble_uart.ino) | Bluetooth Low Energy | C++ (BLE NUS) | Padrão Nordic UART Service, ultra baixo consumo |
+| **ESP32-CAM (AI-Thinker)**| [`esp32_cam_rc_car.ino`](file:///C:/Users/Bryan/.gemini/antigravity/scratch/OmniRC/examples/esp32-cam/esp32_cam_rc_car.ino) | Wi-Fi UDP + MJPEG | C++ (Arduino) | Stream de vídeo OV2640 (porta 81) + RC (porta 8888) |
+| **Arduino Uno / Nano** | [`arduino_bluetooth_l298n.ino`](file:///C:/Users/Bryan/.gemini/antigravity/scratch/OmniRC/examples/arduino/arduino_bluetooth_l298n.ino) | Bluetooth HC-05/06 | C++ (Arduino) | SoftwareSerial, Ponte H L298N, Watchdog milissegundos |
+| **Raspberry Pi 3/4/5/Zero 2**| [`rpi_rc_car_camera.py`](file:///C:/Users/Bryan/.gemini/antigravity/scratch/OmniRC/examples/raspberry_pi/rpi_rc_car_camera.py) | Wi-Fi UDP + Flask | Python 3 | Servidor de vídeo FPV MJPEG + Socket UDP em threads |
+| **Raspberry Pi Pico W** | [`pico_w_udp_car.py`](file:///C:/Users/Bryan/.gemini/antigravity/scratch/OmniRC/examples/pico_w/pico_w_udp_car.py) | Wi-Fi UDP (8888) | MicroPython | Modo AP ou Station, PWM de motores, não-bloqueante |
+| **ESP8266 (NodeMCU / D1)** | [`esp8266_udp_car.ino`](file:///C:/Users/Bryan/.gemini/antigravity/scratch/OmniRC/examples/esp8266/esp8266_udp_car.ino) | Wi-Fi UDP (8888) | C++ (Arduino) | Solução econômica, Fail-Safe, acionamento Ponte H |
+
+---
+
+### 1. ESP32 com Wi-Fi UDP & Fail-Safe Watchdog ([`esp32_wifi_udp_car.ino`](file:///C:/Users/Bryan/.gemini/antigravity/scratch/OmniRC/examples/esp32/esp32_wifi_udp_car.ino))
+Controle via UDP com temporizador de segurança que corta os motores caso o sinal Wi-Fi caia por mais de 500 ms:
 ```cpp
 #include <WiFi.h>
 #include <WiFiUdp.h>
 
-const char* ssid = "NOME_DO_SEU_WIFI";
-const char* password = "SENHA_DO_SEU_WIFI";
+const char* ssid     = "OmniRC_Network";
+const char* password = "password123";
 WiFiUDP udp;
-char packetBuffer[255];
-
-// Temporizador de segurança (Fail-Safe)
 unsigned long lastPacketTime = 0;
-const unsigned long TIMEOUT_MS = 600; // Desliga motores se ficar 600ms sem sinal
-
-void stopMotors() {
-  // Coloque aqui os comandos para zerar o PWM da ponte H
-  // analogWrite(PIN_MOTOR_A, 0);
-  // analogWrite(PIN_MOTOR_B, 0);
-}
+const unsigned long WATCHDOG_TIMEOUT_MS = 500;
 
 void setup() {
   Serial.begin(115200);
   WiFi.begin(ssid, password);
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(300);
-    Serial.print(".");
-  }
-  Serial.print("\nConectado! IP do Carrinho: ");
-  Serial.println(WiFi.localIP()); // Coloque este IP na aba Conexão do OmniRC
+  while (WiFi.status() != WL_CONNECTED) delay(250);
   udp.begin(8888); // Porta padrão do OmniRC
+  Serial.print("IP do Carrinho: "); Serial.println(WiFi.localIP());
 }
 
 void loop() {
   int packetSize = udp.parsePacket();
   if (packetSize) {
-    int len = udp.read(packetBuffer, 255);
-    if (len > 0) packetBuffer[len] = '\0';
-    lastPacketTime = millis(); // Atualiza watchdog
+    char buf[128];
+    int len = udp.read(buf, sizeof(buf) - 1);
+    buf[len] = '\0';
+    lastPacketTime = millis();
 
-    char cmd[16];
-    int x = 0, y = 0;
-    // Processa o formato padrão: DRIVE:X:Y
-    if (sscanf(packetBuffer, "%[^:]:%d:%d", cmd, &x, &y) >= 1) {
+    char cmd[16]; int x = 0, y = 0;
+    if (sscanf(buf, "%[^:]:%d:%d", cmd, &x, &y) >= 1) {
       if (strcmp(cmd, "DRIVE") == 0) {
         // x = direção (-100 a +100), y = acelerador (-100 a +100)
-        Serial.printf("Drive -> Volante: %d%% | Acelerador: %d%%\n", x, y);
+        // Aplicar às pontes H dos motores
       } else if (strcmp(cmd, "STOP") == 0) {
-        stopMotors();
+        // Parada de emergência imediata
       }
     }
   }
-
-  // Se o sinal Wi-Fi cair ou o app for fechado, o watchdog desliga os motores
-  if (millis() - lastPacketTime > TIMEOUT_MS) {
-    stopMotors();
+  if (millis() - lastPacketTime > WATCHDOG_TIMEOUT_MS) {
+    // Fail-safe: corta motores se perder sinal
   }
 }
 ```
 
-### 2. ESP32 com Bluetooth Classic SPP
-```cpp
-#include "BluetoothSerial.h"
+---
 
-BluetoothSerial SerialBT;
+### 2. ESP32 com Bluetooth Low Energy (BLE NUS) ([`esp32_ble_uart.ino`](file:///C:/Users/Bryan/.gemini/antigravity/scratch/OmniRC/examples/esp32/esp32_ble_uart.ino))
+Implementa o padrão da indústria **Nordic UART Service (NUS)**, permitindo conexão instantânea sem necessidade de pareamento prévio no Android:
+* **Service UUID:** `6E400001-B5A3-F393-E0A9-E50E24DCCA9E`
+* **RX Characteristic (Recepção de Comandos):** `6E400002-B5A3-F393-E0A9-E50E24DCCA9E`
+* **TX Characteristic (Telemetria para o Celular):** `6E400003-B5A3-F393-E0A9-E50E24DCCA9E`
 
-void setup() {
-  Serial.begin(115200);
-  SerialBT.begin("OmniRC_Car"); // Nome exibido na busca Bluetooth do celular
-  Serial.println("Bluetooth Classic pronto para pareamento!");
-}
+---
 
-void loop() {
-  if (SerialBT.available()) {
-    String comando = SerialBT.readStringUntil('\n');
-    Serial.println("Comando Bluetooth recebido: " + comando);
-    // Processar o comando recebido
-  }
-}
-```
+### 3. ESP32-CAM com Vídeo FPV + Controle UDP ([`esp32_cam_rc_car.ino`](file:///C:/Users/Bryan/.gemini/antigravity/scratch/OmniRC/examples/esp32-cam/esp32_cam_rc_car.ino))
+Transforma uma placa ESP32-CAM AI-Thinker em um carro FPV completo num único microcontrolador:
+* **Núcleo 0 (Core 0):** Serve o streaming de vídeo MJPEG do sensor OV2640 na porta HTTP `81` (`/stream`).
+* **Núcleo 1 (Core 1):** Processa datagramas UDP de alta velocidade na porta `8888` e aciona a ponte H dos motores.
+* No OmniRC: configure a conexão como **Wi-Fi UDP** (IP do ESP32-CAM, porta `8888`) e na barra superior clique em **📹 Câmera** e informe `http://IP_DO_ESP32:81/stream`.
+
+---
+
+### 4. Arduino Uno / Nano com Bluetooth HC-05 & Ponte H L298N ([`arduino_bluetooth_l298n.ino`](file:///C:/Users/Bryan/.gemini/antigravity/scratch/OmniRC/examples/arduino/arduino_bluetooth_l298n.ino))
+Solução para o clássico Arduino Uno/Nano utilizando módulo HC-05 na porta serial por software (`SoftwareSerial` pinos 10 e 11) e controle PWM duplo de velocidade nos canais ENA e ENB da ponte H L298N.
+
+---
+
+### 5. Raspberry Pi com Python & Câmera Picamera ([`rpi_rc_car_camera.py`](file:///C:/Users/Bryan/.gemini/antigravity/scratch/OmniRC/examples/raspberry_pi/rpi_rc_car_camera.py))
+Script assíncrono em Python 3 para Raspberry Pi 3/4/5 ou Pi Zero 2 W:
+* Inicia servidor web Flask leve transmitindo o feed da câmera Picamera ou Webcam USB em formato multipart MJPEG em `http://IP_DA_RPI:5000/stream`.
+* Escuta pacotes de controle UDP em thread separada com fail-safe e converte os valores em saídas PWM via biblioteca `gpiozero` ou `RPi.GPIO`.
+
+---
+
+### 6. Raspberry Pi Pico W com MicroPython ([`pico_w_udp_car.py`](file:///C:/Users/Bryan/.gemini/antigravity/scratch/OmniRC/examples/pico_w/pico_w_udp_car.py))
+Utiliza o chip RP2040 Wi-Fi rodando MicroPython puro:
+* Pode criar sua própria rede Wi-Fi Access Point (`OmniRC_Car`) ou conectar ao seu roteador.
+* Socket UDP não-bloqueante (`setblocking(False)`) e controle de velocidade por PWM de 16 bits (`machine.PWM`) com frequência de 20 kHz para evitar ruído acústico nos motores.
+
+---
+
+### 7. ESP8266 NodeMCU / D1 Mini ([`esp8266_udp_car.ino`](file:///C:/Users/Bryan/.gemini/antigravity/scratch/OmniRC/examples/esp8266/esp8266_udp_car.ino))
+Projeto de ultra-baixo custo para módulos baseados em ESP8266 (ESP-12E/F) com Wi-Fi UDP e controle direto de pontes H compactas (L9110S, DRV8833 ou L298N).
 
 ---
 

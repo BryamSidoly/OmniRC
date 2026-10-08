@@ -5,6 +5,10 @@ import android.content.SharedPreferences;
 import android.os.Build;
 import android.os.VibrationEffect;
 import android.os.Vibrator;
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
+import android.hardware.SensorManager;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebView;
 
@@ -23,12 +27,58 @@ public class WebAppInterface {
     private final BluetoothClassicController btClassicController;
     private final BluetoothLeController btLeController;
 
+    private final SensorManager sensorManager;
+    private final Sensor accelerometer;
+    private final Sensor gyroscope;
+    private boolean isSensorsRunning = false;
+    private long lastSensorDispatch = 0;
+    private int sensorDispatchIntervalMs = 50;
+    private float lastPitch = 0, lastRoll = 0, lastYaw = 0;
+    private float lastAx = 0, lastAy = 0, lastAz = 0;
+
+    private final SensorEventListener sensorEventListener = new SensorEventListener() {
+        @Override
+        public void onSensorChanged(SensorEvent event) {
+            long now = System.currentTimeMillis();
+            if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
+                lastAx = event.values[0];
+                lastAy = event.values[1];
+                lastAz = event.values[2];
+                double rollRad = Math.atan2(lastAx, Math.sqrt(lastAy * lastAy + lastAz * lastAz));
+                double pitchRad = Math.atan2(-lastAy, lastAz);
+                lastRoll = (float) Math.toDegrees(rollRad);
+                lastPitch = (float) Math.toDegrees(pitchRad);
+            } else if (event.sensor.getType() == Sensor.TYPE_GYROSCOPE) {
+                lastYaw += event.values[2] * (sensorDispatchIntervalMs / 1000.0f);
+            }
+
+            if (now - lastSensorDispatch >= sensorDispatchIntervalMs) {
+                lastSensorDispatch = now;
+                dispatchJs(String.format(java.util.Locale.US,
+                    "window.onNativeSensorData(%.2f, %.2f, %.2f, %.2f, %.2f, %.2f)",
+                    lastPitch, lastRoll, lastYaw, lastAx, lastAy, lastAz));
+            }
+        }
+
+        @Override
+        public void onAccuracyChanged(Sensor sensor, int accuracy) {}
+    };
+
     private String currentTransport = "NONE"; // "WIFI_UDP", "WIFI_TCP", "BT_CLASSIC", "BT_BLE"
 
     public WebAppInterface(MainActivity activity, WebView webView) {
         this.activity = activity;
         this.webView = webView;
         this.prefs = activity.getSharedPreferences("OmniRC_Config", Context.MODE_PRIVATE);
+
+        this.sensorManager = (SensorManager) activity.getSystemService(Context.SENSOR_SERVICE);
+        if (sensorManager != null) {
+            this.accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+            this.gyroscope = sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE);
+        } else {
+            this.accelerometer = null;
+            this.gyroscope = null;
+        }
 
         // Network callbacks
         this.networkController = new NetworkController(new NetworkController.Listener() {
@@ -254,7 +304,35 @@ public class WebAppInterface {
                    .replace("\r", "\\r");
     }
 
+    @JavascriptInterface
+    public void startSensors(int rateDelayMs) {
+        if (sensorManager == null) return;
+        this.sensorDispatchIntervalMs = Math.max(20, rateDelayMs);
+        activity.runOnUiThread(() -> {
+            if (!isSensorsRunning) {
+                isSensorsRunning = true;
+                if (accelerometer != null) {
+                    sensorManager.registerListener(sensorEventListener, accelerometer, SensorManager.SENSOR_DELAY_GAME);
+                }
+                if (gyroscope != null) {
+                    sensorManager.registerListener(sensorEventListener, gyroscope, SensorManager.SENSOR_DELAY_GAME);
+                }
+            }
+        });
+    }
+
+    @JavascriptInterface
+    public void stopSensors() {
+        if (sensorManager != null && isSensorsRunning) {
+            activity.runOnUiThread(() -> {
+                sensorManager.unregisterListener(sensorEventListener);
+                isSensorsRunning = false;
+            });
+        }
+    }
+
     public void cleanup() {
+        stopSensors();
         disconnectAll();
     }
 }
