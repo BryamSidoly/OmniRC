@@ -1,196 +1,258 @@
 # 🎮 OmniRC Remote - Controle Remoto Universal para Android
 
-Aplicativo Android completo, nativo, compilado e instalável para controle remoto de projetos de robótica, veículos de rádio controle (RC), carrinhos, drones, esteiras, braços mecânicos e sistemas com **ESP32**, **Arduino**, **Raspberry Pi**, **Pico W** e **micro:bit**, com comunicação em tempo real via **Wi-Fi** (UDP/TCP/HTTP) e **Bluetooth** (Classic SPP e BLE).
+Aplicativo Android completo, nativo, compilado e instalável para controle remoto de veículos de rádio controle (RC), robôs móveis, drones, esteiras, braços mecânicos e sistemas embarcados com **ESP32**, **Arduino**, **Raspberry Pi**, **Raspberry Pi Pico W**, **STM32** e **micro:bit**.
+
+O sistema opera com comunicação em tempo real via **Wi-Fi** (UDP, TCP Socket e HTTP) e **Bluetooth** (Classic SPP e Low Energy BLE), dispondo de layouts e protocolos 100% personalizáveis.
 
 ---
 
-## 📦 APK Compilado e Pronto para Uso
+## 📦 APK Compilado e Instalação Rápida
 
-O aplicativo já está gerado, otimizado e assinado:
-- **Arquivo:** `OmniRC-Remote.apk`
-- **Caminho absoluto:** `C:\Users\Bryan\.gemini\antigravity\scratch\OmniRC\OmniRC-Remote.apk`
-- **Tamanho:** ~78 KB (ultra leve, sem dependências externas pesadas)
-- **Assinatura:** APK Signature Scheme v1, v2 e v3 (compatível do Android 5.0 Lollipop até o Android 14+)
+* **Download Direto:** [OmniRC-Remote.apk (GitHub Releases)](https://github.com/BryamSidoly/OmniRC/releases/download/v1.0.0/OmniRC-Remote.apk)
+* **Arquivo no Repositório:** `OmniRC-Remote.apk` (~78 KB)
+* **Assinatura:** APK Signature Scheme v1, v2 e v3 (compatível do Android 5.0 Lollipop ao Android 14+)
+
+### Como Instalar no Celular:
+1. **Pelo Computador (Wi-Fi Local):** Execute `python serve.py` e abra no navegador do celular o endereço exibido (ex: `http://192.168.x.x:8080/OmniRC-Remote.apk`).
+2. **Transferência Direta:** Transfira o arquivo `OmniRC-Remote.apk` via USB, WhatsApp ou Drive e clique em **Instalar** no celular.
 
 ---
 
-## 🚀 Como Instalar no Celular
+## 🏗️ Arquitetura Interna do Sistema
 
-### Opção 1: Via Servidor Wi-Fi Local (Recomendado)
-1. No seu computador, abra o PowerShell e inicie o servidor de download rápido:
-   ```powershell
-   python C:\Users\Bryan\.gemini\antigravity\scratch\OmniRC\serve.py
-   ```
-2. No celular conectado na mesma rede Wi-Fi, abra o navegador e acesse o endereço mostrado no terminal (ex: `http://192.168.x.x:8080/OmniRC-Remote.apk`).
-3. Baixe e instale o APK (autorize "Instalar apps de fontes desconhecidas" caso o Android solicite).
+O OmniRC utiliza uma arquitetura híbrida de alta performance, unindo uma interface gráfica fluida e responsiva baseada em HTML5/Canvas com controladores nativos em Java em threads dedicadas para garantir baixíssima latência e evitar congelamento de interface (UI blocking):
 
-### Opção 2: Transferência Direta (USB / WhatsApp / Drive)
-1. Copie o arquivo `OmniRC-Remote.apk` para o celular via cabo USB, Google Drive ou WhatsApp Web.
-2. Abra o arquivo no gerenciador de arquivos do celular e toque em **Instalar**.
+```mermaid
+flowchart TD
+    subgraph UI ["Interface do Usuário (WebView / JS Engine)"]
+        Touch["Interação do Usuário\n(Touch, Analógicos, Sliders, Botões)"]
+        JM["Gerenciador de Layouts\n(layouts.js & joystick.js)"]
+        PM["Motor de Protocolos\n(protocol.js)"]
+        TxLoop["Loop Temporizado TX\n(txRateMs: 20ms / 50ms / 100ms)"]
+        AudioHaptic["Feedback Sensorial\n(Web Audio Synth + Vibração)"]
+    end
+
+    subgraph Bridge ["Ponte Nativa Android (Java Bridge)"]
+        BridgeInt["@JavascriptInterface\nWebAppInterface.java"]
+    end
+
+    subgraph Native ["Controladores Nativos em Threads Dedicadas"]
+        NetCtrl["NetworkController.java\n(Wi-Fi UDP / TCP / HTTP)"]
+        BtClassic["BluetoothClassicController.java\n(RFCOMM / SPP Serial)"]
+        BtBle["BluetoothLeController.java\n(GATT Nordic UART / HM-10)"]
+    end
+
+    subgraph Hardware ["Meio Físico & Receptor Remoto"]
+        Antenna["Antena de Rádio\n(Wi-Fi / Bluetooth do Telefone)"]
+        MCU["Microcontrolador Embarcado\n(ESP32 / Arduino / RPi)"]
+        Motors["Atuadores Físicos\n(Ponte H, Servos, ESC, Relés)"]
+    end
+
+    Touch --> JM
+    JM --> AudioHaptic
+    JM --> PM
+    PM --> TxLoop
+    TxLoop --> BridgeInt
+
+    BridgeInt --> NetCtrl
+    BridgeInt --> BtClassic
+    BridgeInt --> BtBle
+
+    NetCtrl --> Antenna
+    BtClassic --> Antenna
+    BtBle --> Antenna
+
+    Antenna --> MCU
+    MCU --> Motors
+
+    %% Fluxo de Telemetria Reversa
+    MCU -. Telemetria / Respostas .-> Antenna
+    Antenna -. Recebimento de Pacotes .-> NetCtrl
+    Antenna -. Recebimento Serial .-> BtClassic
+    Antenna -. Notificações GATT .-> BtBle
+    NetCtrl -. evaluateJavascript .-> BridgeInt
+    BtClassic -. evaluateJavascript .-> BridgeInt
+    BtBle -. evaluateJavascript .-> BridgeInt
+    BridgeInt -. window.onNativeData .-> UI
+```
+
+### Telemetria Bidirecional
+Além de enviar comandos, o aplicativo escuta respostas e dados de sensores (temperatura, tensão da bateria, eco de status) transmitidos pelo microcontrolador. O fluxo reverso passa pelas threads nativas e é injetado no DOM através do terminal serial em tempo real (`window.onNativeData`).
+
+---
+
+## 📡 Funcionamento Detalhado das Conexões
+
+O aplicativo suporta 5 canais físicos de comunicação, cada um otimizado para um cenário específico de automação ou rádio controle:
+
+### 1. Wi-Fi UDP (User Datagram Protocol) - *Padrão para RC em Tempo Real*
+* **Como opera:** utiliza datagramas puros (`java.net.DatagramSocket` e `DatagramPacket`) na camada de transporte IP.
+* **Sem Handshake:** não há estabelecimento de conexão prévia de 3 vias (3-way handshake) nem confirmação de entrega (ACK/NACK).
+* **Por que é o ideal para RC:** em veículos rápidos, dados defasados não têm utilidade. Se um pacote com a posição do acelerador se perder, o próximo chegará em 20 ms. O UDP elimina o overhead e o buffer bloqueante do TCP, mantendo latência inferior a **3 ms**.
+* **Modo Unicast vs Broadcast:**
+  - **Unicast:** envia diretamente ao IP do carrinho (ex: `192.168.4.1` em modo Access Point ou `192.168.1.150` em modo estação).
+  - **Broadcast (`255.255.255.255`):** transmite para todos os dispositivos da sub-rede na porta configurada (padrão `8888`), permitindo conectar instantaneamente sem precisar descobrir o IP do microcontrolador.
+* **Escuta Paralela:** uma thread em background (`udpReceiveThread`) escuta continuamente mensagens de retorno com buffer de 2048 bytes.
+
+### 2. Wi-Fi TCP Socket (Transmission Control Protocol)
+* **Como opera:** estabelece conexão de fluxo contínuo e persistente (`java.net.Socket`) com o servidor do microcontrolador.
+* **Garantia de Entrega:** todo byte enviado é confirmado pelo receptor. Ideal para braços robóticos, comandos de configuração e envio de comandos onde nenhuma perda pode ocorrer.
+* **Delimitação de Pacotes:** pacotes são transmitidos sequencialmente no `OutputStream` com caracteres terminadores de linha (`\n` ou `\r\n`) para que o microcontrolador possa separá-los facilmente via `readStringUntil('\n')`.
+
+### 3. Wi-Fi HTTP (RESTful GET/POST)
+* **Como opera:** dispara requisições assíncronas via `java.net.HttpURLConnection` em pool de threads (`Executors.newCachedThreadPool()`).
+* **Ideal para:** servidores web embarcados simples em ESP8266/ESP32 (como `ESPAsyncWebServer`), acionando endpoints como `http://192.168.4.1/cmd?action=FRENTE`.
+
+### 4. Bluetooth Classic SPP (Serial Port Profile / RFCOMM)
+* **Como opera:** emula uma porta serial RS-232 transparente sobre a camada RFCOMM do Bluetooth.
+* **UUID Padrão:** utiliza o UUID universal de porta serial SPP:  
+  `00001101-0000-1000-8000-00805F9B34FB`
+* **Compatibilidade:** módulos **HC-05**, **HC-06**, **ESP32 Classic** (via `BluetoothSerial.h`), adaptadores Arduino e robôs educacionais.
+* **Ciclo de Conexão:**
+  1. O aplicativo lê os dispositivos previamente pareados no Android (`BluetoothAdapter.getBondedDevices()`).
+  2. Dispara a conexão em thread assíncrona para não travar a interface (`device.createRfcommSocketToServiceRecord(SPP_UUID)`).
+  3. Uma thread de leitura contínua (`readThread`) monitora o `InputStream` para exibir dados de sensores no terminal do app.
+
+### 5. Bluetooth Low Energy (BLE - GATT Central)
+* **Como opera:** conecta como dispositivo **Central (Cliente)** a servidores GATT embarcados com perfil de porta serial BLE.
+* **Serviços Suportados Automaticamente:**
+  - **Nordic UART Service (NUS):** padrão da indústria para microcontroladores modernos:
+    - Service UUID: `6E400001-B5A3-F393-E0A9-E50E24DCCA9E`
+    - TX Characteristic (Envio): `6E400002-B5A3-F393-E0A9-E50E24DCCA9E` (Write)
+    - RX Characteristic (Retorno): `6E400003-B5A3-F393-E0A9-E50E24DCCA9E` (Notify)
+  - **Módulos HM-10 / CC2541 / AT-09:**
+    - Service UUID: `0000FFE0-0000-1000-8000-00805F9B34FB`
+    - Characteristic: `0000FFE1-0000-1000-8000-00805F9B34FB`
+* **Negociação de MTU:** solicita negociação de MTU de até 512 bytes (`requestMtu(512)`). Em dispositivos que só aceitam MTU padrão de 20 bytes, o app faz fragmentação segura em chunks.
+* **Scanner BLE com RSSI:** localiza dispositivos no ar exibindo o nível de potência de sinal recebido em decibéis (dBm), auxiliando a verificar proximidade.
+
+---
+
+## ⚙️ Funcionamento Detalhado dos Protocolos
+
+O motor de protocolos (`ProtocolManager`) é o coração do OmniRC, responsável por traduzir toques na tela em comandos formatados:
+
+```mermaid
+flowchart LR
+    Raw["1. Valores Brutos\nX: [-100..100]\nY: [-100..100]"] --> DZ["2. Filtro de Zona Morta\n(|val| < deadzone => 0)"]
+    DZ --> Inv["3. Inversão Opcional\n(invertX / invertY)"]
+    Inv --> Scale["4. Mapeamento de Escala\n(PERCENT, BYTE, PWM)"]
+    Scale --> Diff["5. Cálculo Diferencial\n(Left = Y + X, Right = Y - X)"]
+    Diff --> Format["6. Serialização do Protocolo\n(Delimitado, CSV, JSON, HEX, Template)"]
+    Format --> Packet["7. Pacote Formatado Pronto para Envio"]
+```
+
+### 1. Filtro de Zona Morta (Deadzone)
+Evita que folgas no analógico ou movimentos mínimos do dedo façam o veículo se mover sozinho em repouso.
+* Se $|\text{valor}| < \text{deadzone}$ (configurável de 0% a 20%), o valor é zerado automaticamente antes do envio.
+
+### 2. Mapeamento de Faixa de Valores (Value Range)
+Diferentes microcontroladores trabalham com escalas distintas:
+* **PERCENT (-100 a +100):** padrão intuitivo para aceleração e esterçamento.
+* **BYTE (0 a 255):** escala positiva de 8 bits muito comum em receptores simples. O ponto neutro (centro) é mapeado exatamente em **128**:
+  $$\text{Byte} = \text{round}\left(\frac{\text{val} + 100}{200} \times 255\right)$$
+* **PWM (-255 a +255):** mapeamento direto para PWM com sinal (usado para alimentar pontes H como L298N, TB6612FNG):
+  $$\text{PWM} = \text{round}\left(\frac{\text{val}}{100} \times 255\right)$$
+
+### 3. Tração Diferencial Automática (Differential Steering)
+Para carrinhos de esteira, barcos com 2 hélices ou robôs com 2 motores onde não há servo de esterçamento e as curvas são feitas pela diferença de rotação das rodas:
+* O app calcula matematicamente no cliente as velocidades dos motores:
+  $$\text{Motor Esquerdo} = \text{clamp}(Y + X, -100, 100)$$
+  $$\text{Motor Direito} = \text{clamp}(Y - X, -100, 100)$$
+* Os valores de `left` e `right` já saem normalizados na escala escolhida e podem ser incluídos no pacote via tags `{left}` e `{right}`.
+
+### 4. Formatos de Serialização Suportados
+
+| Formato | Sintaxe Gerada | Exemplo de Saída | Uso Recomendado |
+| :--- | :--- | :--- | :--- |
+| **Delimitado (`DELIMITED`)** | `{cmd}:{x}:{y}:{val}\n` | `DRIVE:15:85\n` | ESP32/Arduino com `sscanf()` ou `strtok()` |
+| **CSV** | `{cmd},{x},{y},{val}\n` | `DRIVE,15,85\n` | Padrão clássico de telemetria |
+| **Texto Simples (`RAW`)** | `{cmd}\n` | `F\n`, `B\n`, `L\n`, `R\n`, `S\n` | Carrinhos básicos de 1 caractere |
+| **JSON** | `{"cmd":"...","x":..,"y":..}\n` | `{"cmd":"DRIVE","x":15,"y":85}\n` | ESP32 com biblioteca `ArduinoJson` |
+| **Hexadecimal (`HEX`)** | `AA [CMD] [X] [Y] [VAL] 55` | `AA 44 0F 55 00 55` | Protocolos binários industriais ou rádio RF |
+| **Template Customizado** | Interpolação textual livre | `M:{left}:{right}\n` ou `RC:{cmd}:{x}:{y}` | Qualquer formato customizado pelo usuário |
+
+#### Marcadores Suportados no Template Customizado:
+* `{cmd}`: Nome do comando (ex: `DRIVE`, `SPEED`, `JOY1`).
+* `{x}`: Valor do eixo horizontal mapeado.
+* `{y}`: Valor do eixo vertical mapeado.
+* `{val}`: Valor escalar (slider ou botão).
+* `{left}`: Valor calculado para o motor esquerdo (tração diferencial).
+* `{right}`: Valor calculado para o motor direito (tração diferencial).
+* `\n` ou `\r\n`: Quebras de linha reais.
+
+### 5. Loop Temporizado de Transmissão (Tx Rate Loop)
+Para evitar saturar o buffer serial ou o stack de rede do microcontrolador com centenas de eventos de touch por segundo, o OmniRC utiliza um **loop desacoplado**:
+* Taxas configuráveis: **20 ms (50 Hz)**, **50 ms (20 Hz)** ou **100 ms (10 Hz)**.
+* Os analógicos apenas atualizam registradores em memória; o timer periódico transmite a foto do estado na frequência exata programada.
+* **Benefício de Segurança:** essa cadência contínua é ideal para implementar um temporizador de cão de guarda (**Watchdog**) no microcontrolador.
+
+### 6. Sistema de Parada de Emergência (Fail-Safe & E-Stop)
+* **Botão Físico na Barra Superior:** zera imediatamente todos os estados internos do acelerador, volante e esteiras.
+* **Disparo Redundante de Corte:** transmite pacotes de parada imediata em múltiplos formatos (`STOP` formatado e `S\n` ASCII).
+* **Feedback Visual e Tátil:** pulso de vibração longo de 100 ms, aviso sonoro em onda dente de serra e alerta visual instantâneo na tela.
+
+---
+
+## 🎨 Construtor de Layout Personalizado
+
+No menu de layouts, selecione **🎨 Layout Personalizado**. Você pode montar um painel exclusivo com elementos modulares:
+
+1. **🕹️ Joysticks Analógicos:**
+   - Eixos: Ambos (X/Y), Somente Y (Vertical/Acelerador) ou Somente X (Horizontal/Direção).
+   - Retorno ao centro com mola ou posição fixa (mantém a posição solta).
+   - Telemetria de coordenadas em tempo real (`X:0 Y:0`).
+   - Comando associado no protocolo (ex: `JOY1`, `CAMERA_TILT`).
+
+2. **🎚️ Sliders (Controles Deslizantes / Servos / PWM):**
+   - Valores mínimo, máximo e valor inicial configuráveis.
+   - Envio imediato ao deslizar formatado pelo motor de protocolos.
+   - Mostrador numérico em tempo real.
+
+3. **🔘 Botões de Ação Táteis:**
+   - Comportamento **Momentâneo** (ativo enquanto segurado) ou **Alternar / Toggle** (liga/desliga iluminado).
+   - Comando ao pressionar e comando customizado opcional ao soltar (ex: `TURBO` e `TURBO_OFF`).
+   - Cores de destaque: Ciano, Verde, Âmbar, Vermelho e Magenta.
+   - Feedback de som sintético Web Audio e vibração nativa.
+
+4. **📐 Espaçadores e Divisores (Paddings):**
+   - Criação de divisores estilizados com títulos de seção (ex: "Controles Principais", "Câmera").
+   - Alturas de 12px, 24px e 40px.
+
+5. **Organização em Grid Flexível:**
+   - **50%:** 2 elementos lado a lado na mesma linha.
+   - **100%:** ocupa a largura total da linha.
+   - Reordenação (⬆️ subir / ⬇️ descer) e exclusão (🗑️) no menu de gerenciamento.
+   - Persistência automática no armazenamento do Android.
+
+---
+
+## 🕹️ Layouts Pré-configurados Especializados
+
+* **🏎️ Carro RC / Rover:** acelerador vertical, direção horizontal, limitador de potência (10% a 100%) e botões de ação rápida (Farol, Buzina, Turbo, Marchas).
+* **🛡️ Tanque / Esteiras:** analógicos verticais independentes para esteira esquerda e direita com botões para giro de 360° no próprio eixo.
+* **🎮 Gamepad Console:** dois analógicos de 360° e botões estilo console (A, B, X, Y, L1, R1).
+* **🦾 Braço Robótico / Servos:** 4 sliders analógicos para juntas articuladas (Base S1, Ombro S2, Cotovelo S3, Garra S4) e botões de poses pré-salvas (Home, Pick, Drop).
+* **📟 Terminal Serial & Monitor:** terminal de telemetria bidirecional, envio manual e histórico de mensagens.
 
 ---
 
 ## 🧪 Ambiente de Testes e Simulação no Windows
 
-O projeto acompanha ferramentas para simular e testar o funcionamento completo sem precisar de um microcontrolador físico:
-
-### 1. Servidor Simulador com Painel Web Completo (`rc_device_server.py`)
-Inicia um servidor que escuta simultaneamente em **UDP (porta 8888)** e **TCP (porta 8888)** e abre um painel de visualização interativo no navegador:
-```powershell
-python C:\Users\Bryan\.gemini\antigravity\scratch\OmniRC\rc_device_server.py
-```
-* **Dashboard visual:** Acessível em `http://localhost:5500`.
-* **Simulação de Veículo:** Exibe velocímetro, volante com ângulo real, medidores de motores, faróis, buzina e turbo.
-* **Simulação de Braço Robótico:** Mostra os ângulos em tempo real de 4 servos (Base S1, Ombro S2, Cotovelo S3, Garra S4).
-* **Terminal de Telemetria:** Log de pacotes com timestamps, taxas de transmissão e IP/porta do cliente conectado.
-
-### 2. Simulador Web no Navegador (`simulate.py`)
-Permite rodar a interface completa do OmniRC diretamente no navegador do Windows, com mock da API nativa do Android:
-```powershell
-python C:\Users\Bryan\.gemini\antigravity\scratch\OmniRC\simulate.py
-```
-
-### 3. Receptor Mock de Terminal (`mock_receiver.py`)
-Receptor UDP leve que imprime todos os comandos recebidos no terminal para conferência rápida de sintaxe de protocolo:
-```powershell
-python C:\Users\Bryan\.gemini\antigravity\scratch\OmniRC\mock_receiver.py
-```
-
-### 4. Depuração Remota via USB (Chrome DevTools)
-1. Conecte o celular com a **Depuração USB** ativada.
-2. Abra o Google Chrome no PC e acesse: `chrome://inspect/#devices`.
-3. Localize o **OmniRC** e clique em **Inspect** para abrir o console completo (logs, inspeção de DOM, network e breakpoints).
+* **Simulador Completo com Dashboard Web (`rc_device_server.py`):**
+  ```powershell
+  python rc_device_server.py
+  ```
+  Abre um painel em `http://localhost:5500` com velocímetro, volante com ângulo real, motores, luzes, buzina, telemetria e 4 servos animados. Escuta em UDP e TCP na porta 8888.
+* **Simulador no Navegador (`simulate.py`):** roda a interface do app no navegador do PC com mock da API Android nativa.
+* **Receptor UDP Simples (`mock_receiver.py`):** exibe pacotes UDP diretamente no console do Windows.
+* **Depuração Remota via Chrome DevTools:** conecte o celular por USB com depuração ativada e acesse `chrome://inspect/#devices`.
 
 ---
 
-## 🌟 Todos os Recursos do Aplicativo
+## 💻 Exemplos de Código para Receptores Embarcados
 
-### 🎨 1. Construtor de Layout Personalizado (100% Customizável)
-No menu superior de layouts, selecione **🎨 Layout Personalizado**. Você pode montar um painel sob medida para qualquer tipo de projeto:
-
-* **🕹️ Adicionar Joysticks / Analógicos:**
-  - Configuração de eixos: **Ambos (X e Y - 360°)**, **Somente Y (Vertical / Acelerador)** ou **Somente X (Horizontal / Direção)**.
-  - Opção de retorno ao centro: **Com mola (auto-retorno)** ou **Posição fixa (mantém o valor onde soltou)**.
-  - Telemetria de eixos em tempo real (`X:0 Y:0`).
-  - Streaming contínuo e sincronizado com a taxa de transmissão do protocolo (`txRateMs`).
-  - Comando e rótulo personalizáveis (ex: `JOY1`, `CAM_TILT`, `GIMBAL`).
-
-* **🎚️ Adicionar Sliders / Servos / PWM:**
-  - Definição de limites: valor mínimo, máximo e valor inicial customizáveis.
-  - Telemetria numérica do valor atual.
-  - Envio instantâneo ao deslizar com o comando do protocolo configurado (ex: `SPEED`, `SRV1`, `PWM_MOTOR`).
-
-* **🔘 Adicionar Botões de Ação:**
-  - Comportamento: modo **Momentâneo** (ativo apenas enquanto segura) ou modo **Alternar / Toggle** (liga/desliga com visual iluminado).
-  - Comando enviado ao pressionar (`val: 1`) e comando opcional ao soltar (`val: 0` ou customizado como `OFF`).
-  - Cores de destaque: Ciano Neon, Verde Elétrico, Âmbar, Vermelho Laser e Roxo Neon.
-  - Efeitos sonoros (sintetizador Web Audio) e vibração tátil nativa.
-
-* **📐 Adicionar Espaçadores e Divisores de Seção (Paddings):**
-  - Criação de divisores estéticos com títulos de seção (ex: "Controles Principais", "Acessórios", "Câmera").
-  - Alturas configuráveis (Pequeno 12px, Médio 24px, Grande 40px).
-
-* **📐 Controle de Largura no Grid:**
-  - **50% (Meia largura):** posiciona 2 elementos lado a lado na mesma linha.
-  - **100% (Largura inteira):** ocupa a linha toda da tela.
-
-* **✏️ Gerenciador Completo de Elementos:**
-  - Ferramenta para editar nomes, comandos, eixos e limites de qualquer elemento existente.
-  - Botões para reordenar a posição na tela: subir (⬆️) e descer (⬇️).
-  - Remoção direta de elementos (🗑️).
-  - Persistência automática no armazenamento local do Android.
-
----
-
-### 🕹️ 2. Layouts Pré-configurados Especializados
-
-1. **🏎️ Carro RC / Rover:**
-   - Analógico vertical (Y) para acelerador e freio/marcha à ré.
-   - Analógico horizontal (X) para direção do volante.
-   - Limitador de potência integrado (slider de 10% a 100%).
-   - Botões táteis de acesso rápido: Farol (Toggle), Buzina (Momentâneo), Turbo (Hold) e Marchas.
-
-2. **🛡️ Tanque / Esteiras (Tração Diferencial):**
-   - Dois analógicos verticais independentes: Esteira Esquerda e Esteira Direita.
-   - Botões dedicados para giro 360° rápido no próprio eixo e ativação de acessórios.
-
-3. **🎮 Gamepad Console:**
-   - Dois analógicos completos de 360° (Esquerdo e Direito).
-   - Botões de ação estilo console (A, B, X, Y) e botões superiores L1/R1.
-
-4. **🦾 Braço Robótico / Servomotores:**
-   - 4 Sliders analógicos para articulações: Base Giratória (S1), Ombro (S2), Cotovelo (S3) e Garra/Gripper (S4).
-   - Botões de poses salvas automáticas: Posição Inicial (Home), Pegar Objeto (Pick) e Soltar (Drop).
-
-5. **📟 Terminal Serial & Monitor:**
-   - Envio de comandos manuais de texto ou caracteres de controle.
-   - Terminal de recepção com rolagem e histórico das últimas 100 mensagens recebidas do microcontrolador.
-   - Barra de comandos rápidos configuráveis (`PING`, `STATUS`, `STOP`, `VERSION`, `RESET`, `HELP`).
-
----
-
-### 📡 3. Protocolos de Comunicação e Modos de Conexão
-
-Pelo botão **📡 Conexão**, selecione a interface física de rede desejada:
-* **Wi-Fi UDP:** Envio com latência ultra-baixa de datagramas em tempo real. Suporta conexões ponto a ponto (Unicast) e modo Broadcast geral (`255.255.255.255`).
-* **Wi-Fi TCP Socket:** Conexão socket orientada a fluxo contínuo e persistente.
-* **Wi-Fi HTTP:** Envio de parâmetros via requisições REST/Web Server embarcado.
-* **Bluetooth Classic (SPP / RFCOMM):**
-  - Compatível com **HC-05**, **HC-06**, **ESP32 Bluetooth Classic** (UUID `00001101-0000-1000-8000-00805F9B34FB`).
-  - Lista de dispositivos pareados no Android com reconexão em 1 toque.
-  - Scanner de dispositivos próximos integrado.
-* **Bluetooth Low Energy (BLE):**
-  - Compatível com **ESP32 BLE**, **HM-10**, **micro:bit**, **Arduino Nano 33 BLE** via Nordic UART Service (`6E400001-...`).
-  - Scanner BLE em tempo real com leitura de sinal RSSI (dBm).
-
----
-
-### ⚙️ 4. Motor de Protocolo e Formatação de Dados
-
-Pelo menu **⚙️ Protocolo**, personalize o padrão de mensagens para casar exatamente com o código do seu receptor:
-
-| Formato | Exemplo de Saída | Aplicação Típica |
-| :--- | :--- | :--- |
-| **Delimitado por dois-pontos** | `DRIVE:0:85\n` | ESP32 / Arduino com `sscanf` ou `strtok` |
-| **CSV (Delimitado por vírgula)**| `DRIVE,0,85\n` | Padrão clássico de telemetria |
-| **Texto Simples / ASCII** | `F\n`, `B\n`, `L\n`, `R\n`, `S\n` | Carrinhos básicos de 1 caractere |
-| **JSON Estruturado** | `{"cmd":"DRIVE","x":0,"y":85}` | ESP32 com biblioteca `ArduinoJson` |
-| **Hexadecimal / Bytes Binários**| `AA 01 00 55 55` | Protocolos industriais ou rádio RF |
-| **Template Customizado** | `RC:{cmd}:{x}:{y}\n` ou `M:{left}:{right}\n` | Qualquer formato customizado pelo usuário |
-
-* **Faixa de Valores dos Canais:**
-  - Porcentagem: `-100` a `+100`
-  - Byte Sem Sinal: `0` a `255` (com centro em `128`)
-  - Inteiro com Sinal: `-127` a `+127`
-* **Taxa de Transmissão (Taxa de loop TX):**
-  - 20 ms (50 Hz - Resposta ultra rápida para corrida)
-  - 50 ms (20 Hz - Padrão equilibrado)
-  - 100 ms (10 Hz - Econômico para robôs lentos)
-* **Zona Morta do Analógico (Deadzone):** configurável de 0% a 20% para evitar oscilações no repouso do joystick.
-* **Cálculo Matemático de Tração Diferencial:** o app calcula matematicamente as velocidades individuais para motores esquerdo e direito a partir dos eixos X e Y.
-* **🛑 Botão de Parada de Emergência (Emergency Stop):** botão físico na barra superior que zera instantaneamente todos os motores, centraliza analógicos e transmite pacote de corte (`STOP` / `S\n`).
-* **Feedback Multissensorial:** sintetizador sonoro Web Audio API com tons variáveis e resposta tátil háptica no aparelho.
-
----
-
-## 🛠️ Como Recompilar o APK
-
-O pipeline completo de compilação automatizada local está pronto e não requer instalação do Android Studio:
-```powershell
-python C:\Users\Bryan\.gemini\antigravity\scratch\OmniRC\build.py
-```
-O script executa em ~1 segundo:
-1. Compilação dos recursos com **AAPT2**
-2. Vinculação com o `android.jar` (API 34)
-3. Compilação das classes Java com **javac**
-4. Conversão para bytecode Dalvik DEX com **D8**
-5. Alinhamento e assinatura v1/v2/v3 com **Uber-APK-Signer**
-
----
-
-## 💻 Exemplos de Código Embarcado para Receptores
-
-### Exemplo 1: ESP32 com Wi-Fi UDP (Arduino IDE / PlatformIO)
+### 1. ESP32 com Wi-Fi UDP e Watchdog de Segurança (Fail-Safe)
 ```cpp
 #include <WiFi.h>
 #include <WiFiUdp.h>
@@ -199,6 +261,16 @@ const char* ssid = "NOME_DO_SEU_WIFI";
 const char* password = "SENHA_DO_SEU_WIFI";
 WiFiUDP udp;
 char packetBuffer[255];
+
+// Temporizador de segurança (Fail-Safe)
+unsigned long lastPacketTime = 0;
+const unsigned long TIMEOUT_MS = 600; // Desliga motores se ficar 600ms sem sinal
+
+void stopMotors() {
+  // Coloque aqui os comandos para zerar o PWM da ponte H
+  // analogWrite(PIN_MOTOR_A, 0);
+  // analogWrite(PIN_MOTOR_B, 0);
+}
 
 void setup() {
   Serial.begin(115200);
@@ -217,23 +289,29 @@ void loop() {
   if (packetSize) {
     int len = udp.read(packetBuffer, 255);
     if (len > 0) packetBuffer[len] = '\0';
-    Serial.printf("Comando recebido: %s", packetBuffer);
+    lastPacketTime = millis(); // Atualiza watchdog
 
-    // Exemplo: processar comando DRIVE:X:Y
     char cmd[16];
     int x = 0, y = 0;
+    // Processa o formato padrão: DRIVE:X:Y
     if (sscanf(packetBuffer, "%[^:]:%d:%d", cmd, &x, &y) >= 1) {
       if (strcmp(cmd, "DRIVE") == 0) {
         // x = direção (-100 a +100), y = acelerador (-100 a +100)
+        Serial.printf("Drive -> Volante: %d%% | Acelerador: %d%%\n", x, y);
       } else if (strcmp(cmd, "STOP") == 0) {
-        // Desligar motores
+        stopMotors();
       }
     }
+  }
+
+  // Se o sinal Wi-Fi cair ou o app for fechado, o watchdog desliga os motores
+  if (millis() - lastPacketTime > TIMEOUT_MS) {
+    stopMotors();
   }
 }
 ```
 
-### Exemplo 2: ESP32 com Bluetooth Classic SPP
+### 2. ESP32 com Bluetooth Classic SPP
 ```cpp
 #include "BluetoothSerial.h"
 
@@ -241,14 +319,25 @@ BluetoothSerial SerialBT;
 
 void setup() {
   Serial.begin(115200);
-  SerialBT.begin("OmniRC_Car"); // Nome visível no pareamento do Android
-  Serial.println("Bluetooth iniciado! Pareie com 'OmniRC_Car' no celular.");
+  SerialBT.begin("OmniRC_Car"); // Nome exibido na busca Bluetooth do celular
+  Serial.println("Bluetooth Classic pronto para pareamento!");
 }
 
 void loop() {
   if (SerialBT.available()) {
-    String msg = SerialBT.readStringUntil('\n');
-    Serial.println("Recebido: " + msg);
+    String comando = SerialBT.readStringUntil('\n');
+    Serial.println("Comando Bluetooth recebido: " + comando);
+    // Processar o comando recebido
   }
 }
 ```
+
+---
+
+## 🛠️ Como Recompilar o APK
+
+Para recompilar o projeto após qualquer alteração:
+```powershell
+python build.py
+```
+O script executa automaticamente AAPT2, vinculação com o `android.jar`, compilação Java com javac, conversão Dalvik DEX com D8 e assinatura v1/v2/v3 em menos de 1 segundo.
