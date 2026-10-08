@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>OmniRC Remote</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div id="app-container">
+        <!-- TOP STATUS / NAVIGATION -->
+        <header class="top-nav">
+            <div class="brand-section">
+                <span class="app-title">⚡ OmniRC</span>
+                <div id="status-badge" class="status-indicator">
+                    <span id="status-dot">●</span>
+                    <span id="status-text">Desconectado</span>
+                </div>
+            </div>
+
+            <div class="nav-actions">
+                <select id="layout-select" class="select-layout">
+                    <option value="rc_car">🏎️ Carro RC / Rover</option>
+                    <option value="tank">🛡️ Tanque / Esteiras</option>
+                    <option value="gamepad">🎮 Gamepad Console</option>
+                    <option value="robot_arm">🦾 Braço Robótico</option>
+                    <option value="custom_matrix">🎨 Layout Personalizado</option>
+                    <option value="terminal">📟 Terminal / Log</option>
+                </select>
+
+                <button id="btn-open-conn" class="icon-btn" title="Configurar Conexão">📡 Conexão</button>
+                <button id="btn-open-proto" class="icon-btn" title="Protocolos">⚙️ Protocolo</button>
+                <button id="btn-open-edit" class="icon-btn" title="Editar Layout">✏️ Editar</button>
+                <button id="btn-emergency-stop" class="icon-btn btn-emergency" title="PARADA DE EMERGÊNCIA">🛑 PARAR</button>
+            </div>
+        </header>
+
+        <!-- MAIN VIEWPORT -->
+        <main id="main-viewport">
+            
+            <!-- 1. RC CAR / ROVER LAYOUT -->
+            <div id="view-rc_car" class="layout-container active">
+                <div class="rc-car-layout">
+                    <!-- Left Joystick: Throttle -->
+                    <div class="joystick-zone">
+                        <div id="joy-throttle" class="joystick-base"></div>
+                        <span class="joystick-label">Acelerador / Ré</span>
+                        <span id="telemetry-throttle" class="joystick-telemetry">Y: 0%</span>
+                    </div>
+
+                    <!-- Center Console -->
+                    <div class="center-console">
+                        <div class="hud-panel">
+                            <div class="telemetry-row">
+                                <span>Potência Máxima:</span>
+                                <span id="val-speed-limit" class="telemetry-val">100%</span>
+                            </div>
+                            <input type="range" id="slider-speed-limit" class="custom-slider" min="10" max="100" value="100">
+                        </div>
+
+                        <div id="rc-car-buttons" class="buttons-grid">
+                            <!-- Dynamic buttons inserted here -->
+                        </div>
+                    </div>
+
+                    <!-- Right Joystick: Steering -->
+                    <div class="joystick-zone">
+                        <div id="joy-steering" class="joystick-base"></div>
+                        <span class="joystick-label">Direção / Curva</span>
+                        <span id="telemetry-steering" class="joystick-telemetry">X: 0%</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 2. TANK / DIFFERENTIAL LAYOUT -->
+            <div id="view-tank" class="layout-container">
+                <div class="rc-car-layout">
+                    <!-- Left Track Stick -->
+                    <div class="joystick-zone">
+                        <div id="joy-tank-left" class="joystick-base"></div>
+                        <span class="joystick-label">Esteira Esquerda</span>
+                        <span id="telemetry-tank-left" class="joystick-telemetry">L: 0%</span>
+                    </div>
+
+                    <div class="center-console">
+                        <div class="hud-panel">
+                            <div class="telemetry-row">
+                                <span>Tração:</span>
+                                <span class="telemetry-val">Diferencial Duplo</span>
+                            </div>
+                        </div>
+                        <div id="tank-buttons" class="buttons-grid"></div>
+                    </div>
+
+                    <!-- Right Track Stick -->
+                    <div class="joystick-zone">
+                        <div id="joy-tank-right" class="joystick-base"></div>
+                        <span class="joystick-label">Esteira Direita</span>
+                        <span id="telemetry-tank-right" class="joystick-telemetry">R: 0%</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 3. GAMEPAD LAYOUT -->
+            <div id="view-gamepad" class="layout-container">
+                <div class="rc-car-layout">
+                    <!-- Left Stick -->
+                    <div class="joystick-zone">
+                        <div id="joy-gamepad-left" class="joystick-base"></div>
+                        <span class="joystick-label">Analógico Esquerdo</span>
+                        <span id="telemetry-gamepad-left" class="joystick-telemetry">X:0 Y:0</span>
+                    </div>
+
+                    <!-- Center Gamepad Triggers & D-Pad -->
+                    <div class="center-console">
+                        <div id="gamepad-buttons" class="buttons-grid"></div>
+                    </div>
+
+                    <!-- Right Stick -->
+                    <div class="joystick-zone">
+                        <div id="joy-gamepad-right" class="joystick-base"></div>
+                        <span class="joystick-label">Analógico Direito</span>
+                        <span id="telemetry-gamepad-right" class="joystick-telemetry">X:0 Y:0</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 4. ROBOT ARM LAYOUT -->
+            <div id="view-robot_arm" class="layout-container">
+                <div class="robot-arm-layout">
+                    <div id="robot-sliders" class="sliders-list"></div>
+                    <div id="robot-buttons" class="buttons-grid" style="max-width: 480px; margin: 0 auto;"></div>
+                </div>
+            </div>
+
+            <!-- 5. CUSTOM MATRIX / BUILDER LAYOUT -->
+            <div id="view-custom_matrix" class="layout-container">
+                <div class="custom-builder-layout">
+                    <div class="custom-builder-toolbar">
+                        <span style="font-size:0.9rem; font-weight:700; color:var(--accent-cyan); display:flex; align-items:center; gap:6px;">
+                            🎨 Layout Personalizado
+                        </span>
+                        <div style="display:flex; gap:8px;">
+                            <button id="btn-add-element-bar" class="icon-btn" style="background:var(--accent-cyan); color:#000; font-weight:bold; font-size:0.85rem; border:none;">
+                                ➕ Adicionar Elemento
+                            </button>
+                            <button id="btn-manage-layout" class="icon-btn" style="font-size:0.85rem;">
+                                ✏️ Gerenciar Elementos
+                            </button>
+                        </div>
+                    </div>
+                    <div id="custom-builder-canvas" class="custom-elements-grid">
+                        <!-- Dynamic Joysticks, Sliders, Buttons and Spacers -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- 6. TERMINAL LAYOUT -->
+            <div id="view-terminal" class="layout-container">
+                <div class="terminal-layout">
+                    <div id="terminal-screen" class="terminal-log">
+                        <div class="log-entry rx">OmniRC Terminal iniciado. Conecte-se para monitorar dados.</div>
+                    </div>
+
+                    <div id="terminal-quick-bar" style="display:flex; gap:6px; overflow-x:auto;"></div>
+
+                    <div class="terminal-input-bar">
+                        <input type="text" id="term-input-cmd" class="term-input" placeholder="Digite comando (ex: PING, FWD, 0xFF 0x01)...">
+                        <button id="btn-term-send" class="btn-primary">Enviar</button>
+                        <button id="btn-term-clear" class="btn-secondary">Limpar</button>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+
+        <!-- MODAL: CONEXÃO -->
+        <div id="modal-conn" class="modal-overlay">
+            <div class="modal-card">
+                <div class="modal-header">
+                    <span>📡 Configuração de Conexão</span>
+                    <button class="icon-btn close-modal">✕</button>
+                </div>
+                <div class="modal-body">
+                    <div class="tab-bar">
+                        <button class="tab-btn active" data-tab="tab-wifi">Wi-Fi (UDP / TCP)</button>
+                        <button class="tab-btn" data-tab="tab-bt-classic">Bluetooth Classic</button>
+                        <button class="tab-btn" data-tab="tab-bt-ble">Bluetooth LE (BLE)</button>
+                    </div>
+
+                    <!-- TAB: WIFI -->
+                    <div id="tab-wifi" class="tab-content">
+                        <div class="form-group">
+                            <label>Protocolo de Transporte:</label>
+                            <select id="wifi-type" class="form-control">
+                                <option value="UDP" selected>UDP (Recomendado para RC / baixa latência)</option>
+                                <option value="TCP">TCP Socket (Conexão persistente)</option>
+                                <option value="HTTP">HTTP GET/POST (Web Server)</option>
+                            </select>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group" style="flex: 2;">
+                                <label>IP do Dispositivo:</label>
+                                <input type="text" id="wifi-host" class="form-control" value="192.168.4.1" placeholder="ex: 192.168.4.1">
+                            </div>
+                            <div class="form-group" style="flex: 1;">
+                                <label>Porta:</label>
+                                <input type="number" id="wifi-port" class="form-control" value="8888" placeholder="8888">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- TAB: BLUETOOTH CLASSIC -->
+                    <div id="tab-bt-classic" class="tab-content" style="display: none;">
+                        <div class="form-group">
+                            <div style="display:flex; justify-content:space-between; align-items:center;">
+                                <label>Dispositivos Pareados (HC-05, HC-06, ESP32):</label>
+                                <button id="btn-refresh-paired" class="icon-btn" style="padding:2px 8px; font-size:0.75rem;">Atualizar</button>
+                            </div>
+                            <div id="list-paired-devices" class="device-list">
+                                <div style="color:var(--text-secondary); padding:8px;">Carregando pareados...</div>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <div style="display:flex; justify-content:space-between; align-items:center;">
+                                <label>Buscar Novos Dispositivos:</label>
+                                <button id="btn-scan-classic" class="icon-btn" style="padding:2px 8px; font-size:0.75rem;">Escanear</button>
+                            </div>
+                            <div id="list-discovered-devices" class="device-list">
+                                <div style="color:var(--text-secondary); padding:8px;">Clique em Escanear para buscar...</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- TAB: BLUETOOTH LE -->
+                    <div id="tab-bt-ble" class="tab-content" style="display: none;">
+                        <div class="form-group">
+                            <div style="display:flex; justify-content:space-between; align-items:center;">
+                                <label>Dispositivos BLE Próximos (Nordic UART, HM-10, ESP32):</label>
+                                <button id="btn-scan-ble" class="icon-btn" style="padding:2px 8px; font-size:0.75rem;">Escanear BLE</button>
+                            </div>
+                            <div id="list-ble-devices" class="device-list">
+                                <div style="color:var(--text-secondary); padding:8px;">Clique em Escanear BLE para buscar...</div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+                <div class="modal-footer">
+                    <button id="btn-disconnect-all" class="btn-secondary" style="color:var(--accent-red); margin-right:auto;">Desconectar</button>
+                    <button class="btn-secondary close-modal">Cancelar</button>
+                    <button id="btn-confirm-connect" class="btn-primary">Conectar</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODAL: PROTOCOLO -->
+        <div id="modal-proto" class="modal-overlay">
+            <div class="modal-card">
+                <div class="modal-header">
+                    <span>⚙️ Configuração de Protocolo e Mensagens</span>
+                    <button class="icon-btn close-modal">✕</button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label>Formato da Mensagem:</label>
+                        <select id="proto-format" class="form-control">
+                            <option value="DELIMITED" selected>Delimitado por vírgula (ex: JOY,10,85\n)</option>
+                            <option value="RAW">Texto Simples / Letras (ex: F, B, L, R, S)</option>
+                            <option value="JSON">JSON (ex: {"cmd":"JOY","x":10,"y":85})</option>
+                            <option value="HEX">Hexadecimal / Binário (Bytes brutos)</option>
+                            <option value="TEMPLATE">Template Customizado</option>
+                        </select>
+                    </div>
+
+                    <div id="group-template" class="form-group" style="display:none;">
+                        <label>Template (Tags: {cmd}, {x}, {y}, {val}, {left}, {right}):</label>
+                        <input type="text" id="proto-template" class="form-control" value="RC:{cmd}:{x}:{y}\n">
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group" style="flex:1;">
+                            <label>Final de Linha:</label>
+                            <select id="proto-ending" class="form-control">
+                                <option value="\n" selected>\n (Nova Linha)</option>
+                                <option value="\r\n">\r\n (CRLF)</option>
+                                <option value="none">Nenhum</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="flex:1;">
+                            <label>Escala de Valores:</label>
+                            <select id="proto-range" class="form-control">
+                                <option value="PERCENT" selected>-100 a +100 (%)</option>
+                                <option value="BYTE">0 a 255 (Centro 128)</option>
+                                <option value="PWM">-255 a +255 (PWM)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group" style="flex:1;">
+                            <label>Taxa de Transmissão (Hz):</label>
+                            <select id="proto-rate" class="form-control">
+                                <option value="20">50 Hz (20ms - Ultra Rápido)</option>
+                                <option value="50" selected>20 Hz (50ms - Padrão RC)</option>
+                                <option value="100">10 Hz (100ms - Econômico)</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="flex:1;">
+                            <label>Zona Morta Joystick (%):</label>
+                            <input type="number" id="proto-deadzone" class="form-control" value="5" min="0" max="30">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                            <input type="checkbox" id="proto-differential" style="width:18px; height:18px;">
+                            <span>Cálculo de Direção Diferencial (Esteiras / 2 Motores)</span>
+                        </label>
+                    </div>
+
+                    <div class="form-group">
+                        <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                            <input type="checkbox" id="proto-haptics" checked style="width:18px; height:18px;">
+                            <span>Vibração Tátil no Celular (Haptics)</span>
+                        </label>
+                    </div>
+
+                </div>
+                <div class="modal-footer">
+                    <button class="btn-secondary close-modal">Fechar</button>
+                    <button id="btn-save-proto" class="btn-primary">Salvar Protocolo</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODAL: EDITOR DE LAYOUT -->
+        <div id="modal-edit" class="modal-overlay">
+            <div class="modal-card">
+                <div class="modal-header">
+                    <span>✏️ Personalizar Botões e Controles</span>
+                    <button class="icon-btn close-modal">✕</button>
+                </div>
+                <div class="modal-body" id="layout-editor-body">
+                    <!-- Dynamic form based on current layout -->
+                </div>
+                <div class="modal-footer">
+                    <button id="btn-add-new-from-edit" class="btn-primary" style="margin-right:auto; background:var(--accent-cyan); color:#000;">➕ Adicionar Elemento</button>
+                    <button id="btn-reset-layout" class="btn-secondary" style="color:var(--accent-red);">Restaurar Padrão</button>
+                    <button class="btn-secondary close-modal">Cancelar</button>
+                    <button id="btn-save-layout" class="btn-primary">Salvar Alterações</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODAL: ADICIONAR NOVO ELEMENTO AO LAYOUT -->
+        <div id="modal-add-element" class="modal-overlay">
+            <div class="modal-card">
+                <div class="modal-header">
+                    <span>➕ Adicionar Elemento ao Layout</span>
+                    <button class="icon-btn close-modal">✕</button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label>Tipo de Elemento:</label>
+                        <select id="new-el-type" class="form-control">
+                            <option value="joystick" selected>🕹️ Analógico / Joystick</option>
+                            <option value="slider">🎚️ Controle Deslizante (Slider / Servo)</option>
+                            <option value="button">🔘 Botão de Ação / Comando</option>
+                            <option value="spacer">📐 Espaçador / Divisor de Seção</option>
+                        </select>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group" style="flex: 1;">
+                            <label>Rótulo / Nome Visível:</label>
+                            <input type="text" id="new-el-label" class="form-control" placeholder="ex: Direção, Garra, Farol" value="Novo Controle">
+                        </div>
+                        <div class="form-group" style="flex: 1;">
+                            <label>Comando no Protocolo:</label>
+                            <input type="text" id="new-el-cmd" class="form-control" placeholder="ex: JOY1, SRV1, CMD" value="CMD1">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Largura no Layout:</label>
+                        <select id="new-el-width" class="form-control">
+                            <option value="50%" selected>Meia Largura (50% - 2 por linha)</option>
+                            <option value="100%">Largura Completa (100% - Ocupa toda a linha)</option>
+                        </select>
+                    </div>
+
+                    <!-- ESPECÍFICO: JOYSTICK -->
+                    <div id="section-opt-joystick" class="form-row">
+                        <div class="form-group" style="flex: 1;">
+                            <label>Eixos do Analógico:</label>
+                            <select id="new-joy-axis" class="form-control">
+                                <option value="BOTH" selected>Ambos (X e Y - 360°)</option>
+                                <option value="Y_ONLY">Somente Y (Acelerador / Vertical)</option>
+                                <option value="X_ONLY">Somente X (Direção / Horizontal)</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="flex: 1;">
+                            <label>Retorno ao Centro:</label>
+                            <select id="new-joy-return" class="form-control">
+                                <option value="true" selected>Sim (Mola / Centralizar)</option>
+                                <option value="false">Não (Manter Posição)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- ESPECÍFICO: SLIDER -->
+                    <div id="section-opt-slider" class="form-row" style="display: none;">
+                        <div class="form-group" style="flex: 1;">
+                            <label>Valor Mínimo:</label>
+                            <input type="number" id="new-sl-min" class="form-control" value="0">
+                        </div>
+                        <div class="form-group" style="flex: 1;">
+                            <label>Valor Máximo:</label>
+                            <input type="number" id="new-sl-max" class="form-control" value="180">
+                        </div>
+                        <div class="form-group" style="flex: 1;">
+                            <label>Valor Inicial:</label>
+                            <input type="number" id="new-sl-val" class="form-control" value="90">
+                        </div>
+                    </div>
+
+                    <!-- ESPECÍFICO: BOTÃO -->
+                    <div id="section-opt-button" style="display: none;">
+                        <div class="form-row">
+                            <div class="form-group" style="flex: 1;">
+                                <label>Comportamento:</label>
+                                <select id="new-btn-type" class="form-control">
+                                    <option value="momentary" selected>Momentâneo (Ativo enquanto segurar)</option>
+                                    <option value="toggle">Alternar (Liga / Desliga Toggle)</option>
+                                </select>
+                            </div>
+                            <div class="form-group" style="flex: 1;">
+                                <label>Comando ao Soltar:</label>
+                                <input type="text" id="new-btn-rel" class="form-control" placeholder="(opcional, ex: OFF)">
+                            </div>
+                        </div>
+                        <div class="form-group" style="margin-top: 6px;">
+                            <label>Cor de Destaque:</label>
+                            <select id="new-btn-color" class="form-control">
+                                <option value="#00E5FF" selected>Ciano Neon</option>
+                                <option value="#00FF88">Verde Elétrico</option>
+                                <option value="#FFB800">Âmbar / Amarelo</option>
+                                <option value="#FF3366">Vermelho Laser</option>
+                                <option value="#BD00FF">Roxo / Magenta</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- ESPECÍFICO: ESPAÇADOR -->
+                    <div id="section-opt-spacer" style="display: none;">
+                        <div class="form-group">
+                            <label>Altura do Espaço:</label>
+                            <select id="new-sp-height" class="form-control">
+                                <option value="12">Pequeno (12px)</option>
+                                <option value="24" selected>Médio (24px)</option>
+                                <option value="40">Grande (40px)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                </div>
+                <div class="modal-footer">
+                    <button class="btn-secondary close-modal">Cancelar</button>
+                    <button id="btn-confirm-add-element" class="btn-primary">Adicionar ao Layout</button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- SCRIPTS -->
+    <script src="js/protocol.js"></script>
+    <script src="js/joystick.js"></script>
+    <script src="js/layouts.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>

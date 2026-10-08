@@ -1,0 +1,48 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Background Circle -->
+    <path
+        android:fillColor="#0D1117"
+        android:pathData="M54,4 A50,50 0 1,1 53.9,4 Z" />
+    <!-- Outer Glow Ring -->
+    <path
+        android:strokeColor="#00E5FF"
+        android:strokeWidth="3"
+        android:pathData="M54,10 A44,44 0 1,1 53.9,10 Z" />
+    <!-- Gamepad Body -->
+    <path
+        android:fillColor="#161B22"
+        android:strokeColor="#30363D"
+        android:strokeWidth="2"
+        android:pathData="M32,40 C32,34 38,30 45,30 L63,30 C70,30 76,34 76,40 L78,65 C78,73 70,78 62,75 L58,73 C56,72 52,72 50,73 L46,75 C38,78 30,73 30,65 Z" />
+    <!-- Left D-Pad / Stick Accent -->
+    <path
+        android:fillColor="#00E5FF"
+        android:pathData="M42,48 A6,6 0 1,1 41.9,48 Z" />
+    <path
+        android:strokeColor="#00E5FF"
+        android:strokeWidth="1.5"
+        android:pathData="M42,43 A11,11 0 1,1 41.9,43 Z" />
+    <!-- Right Action Buttons Accent -->
+    <path
+        android:fillColor="#FF3366"
+        android:pathData="M66,48 A6,6 0 1,1 65.9,48 Z" />
+    <path
+        android:strokeColor="#FF3366"
+        android:strokeWidth="1.5"
+        android:pathData="M66,43 A11,11 0 1,1 65.9,43 Z" />
+    <!-- Radio Waves / Wi-Fi Signal on top -->
+    <path
+        android:strokeColor="#00FF88"
+        android:strokeWidth="2"
+        android:strokeLineCap="round"
+        android:pathData="M46,22 C51,19 57,19 62,22" />
+    <path
+        android:strokeColor="#00FF88"
+        android:strokeWidth="2"
+        android:strokeLineCap="round"
+        android:pathData="M49,26 C52,24 56,24 59,26" />
+</vector>
