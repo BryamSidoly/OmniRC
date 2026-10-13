@@ -26,6 +26,7 @@ public class WebAppInterface {
     private final NetworkController networkController;
     private final BluetoothClassicController btClassicController;
     private final BluetoothLeController btLeController;
+    private final UsbSerialController usbSerialController;
 
     private final SensorManager sensorManager;
     private final Sensor accelerometer;
@@ -143,6 +144,34 @@ public class WebAppInterface {
                 dispatchJs("window.onNativeDeviceFound('" + escapeJs(name) + "', '" + escapeJs(address) + "', 'BLE', " + rssi + ")");
             }
         });
+
+        // USB Serial / OTG callbacks
+        this.usbSerialController = new UsbSerialController(activity, new UsbSerialController.Listener() {
+            @Override
+            public void onStatus(String status, String details) {
+                dispatchJs("window.onNativeStatus('" + escapeJs(status) + "', '" + escapeJs(details) + "')");
+            }
+
+            @Override
+            public void onData(String data) {
+                dispatchJs("window.onNativeData('" + escapeJs(data) + "')");
+            }
+
+            @Override
+            public void onError(String error) {
+                dispatchJs("window.onNativeError('" + escapeJs(error) + "')");
+            }
+
+            @Override
+            public void onDeviceAttached(String deviceName) {
+                dispatchJs("window.onNativeUsbEvent('ATTACHED', '" + escapeJs(deviceName) + "')");
+            }
+
+            @Override
+            public void onDeviceDetached(String deviceName) {
+                dispatchJs("window.onNativeUsbEvent('DETACHED', '" + escapeJs(deviceName) + "')");
+            }
+        });
     }
 
     @JavascriptInterface
@@ -170,6 +199,18 @@ public class WebAppInterface {
     }
 
     @JavascriptInterface
+    public void connectUsb(int deviceId, int baudRate) {
+        disconnectAll();
+        currentTransport = "USB_SERIAL";
+        usbSerialController.connect(deviceId, baudRate);
+    }
+
+    @JavascriptInterface
+    public String getUsbDevicesJson() {
+        return usbSerialController.getConnectedDevicesJson();
+    }
+
+    @JavascriptInterface
     public void disconnect() {
         disconnectAll();
     }
@@ -178,6 +219,9 @@ public class WebAppInterface {
         networkController.disconnect();
         btClassicController.disconnect();
         btLeController.disconnect();
+        if (usbSerialController != null) {
+            usbSerialController.disconnect();
+        }
         currentTransport = "NONE";
         dispatchJs("window.onNativeStatus('DISCONNECTED', 'All disconnected')");
     }
@@ -199,6 +243,8 @@ public class WebAppInterface {
             btClassicController.sendData(bytes);
         } else if ("BT_BLE".equals(currentTransport)) {
             btLeController.sendData(bytes);
+        } else if ("USB_SERIAL".equals(currentTransport)) {
+            usbSerialController.sendData(bytes);
         }
     }
 
@@ -334,5 +380,8 @@ public class WebAppInterface {
     public void cleanup() {
         stopSensors();
         disconnectAll();
+        if (usbSerialController != null) {
+            usbSerialController.unregister();
+        }
     }
 }

@@ -140,6 +140,12 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
                     });
                 }
+            } else if (['drone_quad', 'airplane_wing', 'heli_cp', 'rc_transmitter'].includes(currentLayout)) {
+                updateAeromodelChannels();
+                const isBinary = ['CRSF', 'SBUS', 'IBUS', 'MAVLINK', 'MSP', 'HEX'].includes(ProtocolManager.config.format);
+                const cmd = ProtocolManager.formatCommand('AERO', { isAero: true });
+                sendPacket(cmd, isBinary);
+                updateLiveAeroVisualizers();
             }
         }, rate);
     }
@@ -261,6 +267,336 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // ==========================================
+    // AEROMODELLING STATE & CONTROLS (Drones, Aviões, Helicópteros, Transmissor)
+    // ==========================================
+    const aeroState = {
+        roll: 0,
+        pitch: 0,
+        throttle: 0,
+        yaw: 0,
+        trims: { ail: 0, ele: 0, rud: 0, thr: 0 },
+        droneArmed: false,
+        droneFlightMode: 'ANGLE',
+        droneBeeper: false,
+        droneTurtle: false,
+        planeMotorCut: true,
+        planeFlightMode: 'MANUAL',
+        planeFlaps: 0,
+        planeGearDown: true,
+        heliThrottleHold: true,
+        heliIdleUp: 'NORMAL',
+        heliGyroGain: 70,
+        heliDualRate: 100,
+        stickMode: 2,
+        channelMap: 'AETR',
+        switches: { SA: 'UP', SB: 'UP', SC: 'UP', SD: 'UP' },
+        pots: { S1: 1500, S2: 1500 }
+    };
+
+    // 1. Drone Joysticks
+    const joyDroneLeft = new VirtualJoystick('joy-drone-left', {
+        axis: 'BOTH',
+        color: '#00FF88',
+        autoReturn: false,
+        onChange: (x, y) => {
+            aeroState.yaw = x;
+            aeroState.throttle = Math.max(0, Math.min(100, (y + 100) / 2));
+            const elThr = document.getElementById('telemetry-drone-thr');
+            const elYaw = document.getElementById('telemetry-drone-yaw');
+            const usVal = Math.round(1000 + (aeroState.throttle * 10));
+            if (elThr) elThr.innerText = `THR: ${Math.round(aeroState.throttle)}% (${usVal}µs)`;
+            if (elYaw) elYaw.innerText = `YAW: ${Math.round(x)}%`;
+        },
+        onRelease: () => {
+            aeroState.yaw = 0;
+            const elYaw = document.getElementById('telemetry-drone-yaw');
+            if (elYaw) elYaw.innerText = 'YAW: 0%';
+        }
+    });
+
+    const joyDroneRight = new VirtualJoystick('joy-drone-right', {
+        axis: 'BOTH',
+        color: '#00E5FF',
+        autoReturn: true,
+        onChange: (x, y) => {
+            aeroState.roll = x;
+            aeroState.pitch = y;
+            const elPit = document.getElementById('telemetry-drone-pitch');
+            const elRol = document.getElementById('telemetry-drone-roll');
+            if (elPit) elPit.innerText = `PITCH: ${Math.round(y)}%`;
+            if (elRol) elRol.innerText = `ROLL: ${Math.round(x)}%`;
+        },
+        onRelease: () => {
+            aeroState.roll = 0;
+            aeroState.pitch = 0;
+            const elPit = document.getElementById('telemetry-drone-pitch');
+            const elRol = document.getElementById('telemetry-drone-roll');
+            if (elPit) elPit.innerText = 'PITCH: 0%';
+            if (elRol) elRol.innerText = 'ROLL: 0%';
+        }
+    });
+
+    // 2. Airplane Joysticks
+    const joyPlaneLeft = new VirtualJoystick('joy-plane-left', {
+        axis: 'BOTH',
+        color: '#FFB800',
+        autoReturn: false,
+        onChange: (x, y) => {
+            aeroState.yaw = x;
+            aeroState.throttle = Math.max(0, Math.min(100, (y + 100) / 2));
+            const elThr = document.getElementById('telemetry-plane-thr');
+            const elRud = document.getElementById('telemetry-plane-rud');
+            if (elThr) elThr.innerText = `THR: ${Math.round(aeroState.throttle)}%`;
+            if (elRud) elRud.innerText = `RUD: ${Math.round(x)}%`;
+        },
+        onRelease: () => {
+            aeroState.yaw = 0;
+            const elRud = document.getElementById('telemetry-plane-rud');
+            if (elRud) elRud.innerText = 'RUD: 0%';
+        }
+    });
+
+    const joyPlaneRight = new VirtualJoystick('joy-plane-right', {
+        axis: 'BOTH',
+        color: '#00E5FF',
+        autoReturn: true,
+        onChange: (x, y) => {
+            aeroState.roll = x;
+            aeroState.pitch = y;
+            const elEle = document.getElementById('telemetry-plane-ele');
+            const elAil = document.getElementById('telemetry-plane-ail');
+            if (elEle) elEle.innerText = `ELE: ${Math.round(y)}%`;
+            if (elAil) elAil.innerText = `AIL: ${Math.round(x)}%`;
+        },
+        onRelease: () => {
+            aeroState.roll = 0;
+            aeroState.pitch = 0;
+            const elEle = document.getElementById('telemetry-plane-ele');
+            const elAil = document.getElementById('telemetry-plane-ail');
+            if (elEle) elEle.innerText = 'ELE: 0%';
+            if (elAil) elAil.innerText = 'AIL: 0%';
+        }
+    });
+
+    // 3. Helicopter Joysticks
+    const joyHeliLeft = new VirtualJoystick('joy-heli-left', {
+        axis: 'BOTH',
+        color: '#FF0055',
+        autoReturn: false,
+        onChange: (x, y) => {
+            aeroState.yaw = x;
+            aeroState.throttle = Math.max(0, Math.min(100, (y + 100) / 2));
+            const elCol = document.getElementById('telemetry-heli-col');
+            const elRud = document.getElementById('telemetry-heli-rud');
+            if (elCol) elCol.innerText = `COL: ${Math.round(aeroState.throttle)}%`;
+            if (elRud) elRud.innerText = `RUD: ${Math.round(x)}%`;
+        },
+        onRelease: () => {
+            aeroState.yaw = 0;
+            const elRud = document.getElementById('telemetry-heli-rud');
+            if (elRud) elRud.innerText = 'RUD: 0%';
+        }
+    });
+
+    const joyHeliRight = new VirtualJoystick('joy-heli-right', {
+        axis: 'BOTH',
+        color: '#00E5FF',
+        autoReturn: true,
+        onChange: (x, y) => {
+            aeroState.roll = x;
+            aeroState.pitch = y;
+            const elEle = document.getElementById('telemetry-heli-ele');
+            const elAil = document.getElementById('telemetry-heli-ail');
+            if (elEle) elEle.innerText = `ELE: ${Math.round(y)}%`;
+            if (elAil) elAil.innerText = `AIL: ${Math.round(x)}%`;
+        },
+        onRelease: () => {
+            aeroState.roll = 0;
+            aeroState.pitch = 0;
+            const elEle = document.getElementById('telemetry-heli-ele');
+            const elAil = document.getElementById('telemetry-heli-ail');
+            if (elEle) elEle.innerText = 'ELE: 0%';
+            if (elAil) elAil.innerText = 'AIL: 0%';
+        }
+    });
+
+    // 4. Universal RC Transmitter Joysticks
+    const joyTxLeft = new VirtualJoystick('joy-tx-left', {
+        axis: 'BOTH',
+        color: '#00E5FF',
+        autoReturn: false,
+        onChange: (x, y) => {
+            if (aeroState.stickMode === 2) {
+                aeroState.yaw = x;
+                aeroState.throttle = Math.max(0, Math.min(100, (y + 100) / 2));
+            } else {
+                aeroState.yaw = x;
+                aeroState.pitch = y;
+            }
+            const elY = document.getElementById('telemetry-tx-left-y');
+            const elX = document.getElementById('telemetry-tx-left-x');
+            if (elY) elY.innerText = `Y: ${Math.round(y)}%`;
+            if (elX) elX.innerText = `X: ${Math.round(x)}%`;
+        },
+        onRelease: () => {
+            if (aeroState.stickMode === 2) {
+                aeroState.yaw = 0;
+            } else {
+                aeroState.yaw = 0;
+                aeroState.pitch = 0;
+            }
+        }
+    });
+
+    const joyTxRight = new VirtualJoystick('joy-tx-right', {
+        axis: 'BOTH',
+        color: '#FFB800',
+        autoReturn: true,
+        onChange: (x, y) => {
+            if (aeroState.stickMode === 2) {
+                aeroState.roll = x;
+                aeroState.pitch = y;
+            } else {
+                aeroState.roll = x;
+                aeroState.throttle = Math.max(0, Math.min(100, (y + 100) / 2));
+            }
+            const elY = document.getElementById('telemetry-tx-right-y');
+            const elX = document.getElementById('telemetry-tx-right-x');
+            if (elY) elY.innerText = `Y: ${Math.round(y)}%`;
+            if (elX) elX.innerText = `X: ${Math.round(x)}%`;
+        },
+        onRelease: () => {
+            if (aeroState.stickMode === 2) {
+                aeroState.roll = 0;
+                aeroState.pitch = 0;
+            } else {
+                aeroState.roll = 0;
+            }
+        }
+    });
+
+    function updateAeromodelChannels() {
+        const layoutId = LayoutManager.currentLayoutId || 'drone_quad';
+
+        let roll = aeroState.roll + (aeroState.trims.ail * 2.5);
+        let pitch = aeroState.pitch + (aeroState.trims.ele * 2.5);
+        let throttle = aeroState.throttle + (aeroState.trims.thr * 2.5);
+        let yaw = aeroState.yaw + (aeroState.trims.rud * 2.5);
+
+        roll = Math.max(-100, Math.min(100, roll));
+        pitch = Math.max(-100, Math.min(100, pitch));
+        yaw = Math.max(-100, Math.min(100, yaw));
+
+        if (layoutId === 'drone_quad') {
+            if (!aeroState.droneArmed) throttle = 0;
+            throttle = Math.max(0, Math.min(100, throttle));
+
+            ProtocolManager.setChannel(4, aeroState.droneArmed ? 2000 : 1000);
+            const mVal = aeroState.droneFlightMode === 'ACRO' ? 1000 : (aeroState.droneFlightMode === 'ANGLE' ? 1500 : 2000);
+            ProtocolManager.setChannel(5, mVal);
+            ProtocolManager.setChannel(6, aeroState.droneBeeper ? 2000 : 1000);
+            ProtocolManager.setChannel(7, aeroState.droneTurtle ? 2000 : 1000);
+            ProtocolManager.updateAeroSticks(roll, pitch, throttle, yaw, false);
+
+        } else if (layoutId === 'airplane_wing') {
+            if (aeroState.planeMotorCut) throttle = 0;
+            throttle = Math.max(0, Math.min(100, throttle));
+
+            ProtocolManager.setChannel(4, aeroState.planeMotorCut ? 1000 : 2000);
+            let pMode = 1000;
+            if (aeroState.planeFlightMode === 'FBWA') pMode = 1333;
+            else if (aeroState.planeFlightMode === 'CRUISE') pMode = 1666;
+            else if (aeroState.planeFlightMode === 'RTH') pMode = 2000;
+            ProtocolManager.setChannel(5, pMode);
+
+            const flapVal = aeroState.planeFlaps === 0 ? 1000 : (aeroState.planeFlaps === 50 ? 1500 : 2000);
+            ProtocolManager.setChannel(6, flapVal);
+            ProtocolManager.setChannel(7, aeroState.planeGearDown ? 1000 : 2000);
+            ProtocolManager.updateAeroSticks(roll, pitch, throttle, yaw, false);
+
+        } else if (layoutId === 'heli_cp') {
+            let headSpeed = 1000;
+            let collective = throttle;
+
+            if (aeroState.heliThrottleHold) {
+                headSpeed = 1000;
+            } else if (aeroState.heliIdleUp === 'NORMAL') {
+                headSpeed = Math.round(1000 + (collective * 9));
+            } else if (aeroState.heliIdleUp === 'IDLE1') {
+                headSpeed = 1800;
+            } else if (aeroState.heliIdleUp === 'IDLE2') {
+                headSpeed = 2000;
+            }
+
+            ProtocolManager.setChannel(4, aeroState.heliThrottleHold ? 1000 : 2000);
+            ProtocolManager.setChannel(5, headSpeed);
+            ProtocolManager.setChannel(6, Math.round(1000 + aeroState.heliGyroGain * 10));
+            ProtocolManager.setChannel(7, aeroState.heliDualRate === 100 ? 2000 : 1500);
+            ProtocolManager.updateAeroSticks(roll, pitch, collective, yaw, false);
+
+        } else if (layoutId === 'rc_transmitter') {
+            throttle = Math.max(0, Math.min(100, throttle));
+
+            const saVal = aeroState.switches.SA === 'UP' ? 1000 : (aeroState.switches.SA === 'MID' ? 1500 : 2000);
+            const sbVal = aeroState.switches.SB === 'UP' ? 1000 : (aeroState.switches.SB === 'MID' ? 1500 : 2000);
+            const scVal = aeroState.switches.SC === 'UP' ? 1000 : (aeroState.switches.SC === 'MID' ? 1500 : 2000);
+            const sdVal = aeroState.switches.SD === 'UP' ? 1000 : 2000;
+
+            ProtocolManager.setChannel(4, saVal);
+            ProtocolManager.setChannel(5, sbVal);
+            ProtocolManager.setChannel(6, scVal);
+            ProtocolManager.setChannel(7, sdVal);
+            ProtocolManager.setChannel(8, aeroState.pots.S1);
+            ProtocolManager.setChannel(9, aeroState.pots.S2);
+            ProtocolManager.updateAeroSticks(roll, pitch, throttle, yaw, false);
+        }
+    }
+
+    function updateLiveAeroVisualizers() {
+        const ch = ProtocolManager.getChannels();
+        const layoutId = LayoutManager.currentLayoutId;
+
+        if (layoutId === 'drone_quad') {
+            const ail = document.getElementById('meter-drone-ail');
+            const ele = document.getElementById('meter-drone-ele');
+            const thr = document.getElementById('meter-drone-thr');
+            const rud = document.getElementById('meter-drone-rud');
+            if (ail) ail.innerText = `${ch[0]}µs`;
+            if (ele) ele.innerText = `${ch[1]}µs`;
+            if (thr) thr.innerText = `${ch[2]}µs`;
+            if (rud) rud.innerText = `${ch[3]}µs`;
+        } else if (layoutId === 'airplane_wing') {
+            const ail = document.getElementById('meter-plane-ail');
+            const ele = document.getElementById('meter-plane-ele');
+            const thr = document.getElementById('meter-plane-thr');
+            const rud = document.getElementById('meter-plane-rud');
+            if (ail) ail.innerText = `${ch[0]}µs`;
+            if (ele) ele.innerText = `${ch[1]}µs`;
+            if (thr) thr.innerText = `${ch[2]}µs`;
+            if (rud) rud.innerText = `${ch[3]}µs`;
+        } else if (layoutId === 'heli_cp') {
+            const ail = document.getElementById('meter-heli-ail');
+            const ele = document.getElementById('meter-heli-ele');
+            const col = document.getElementById('meter-heli-col');
+            const rud = document.getElementById('meter-heli-rud');
+            if (ail) ail.innerText = `${ch[0]}µs`;
+            if (ele) ele.innerText = `${ch[1]}µs`;
+            if (col) col.innerText = `${ch[2]}µs`;
+            if (rud) rud.innerText = `${ch[3]}µs`;
+        } else if (layoutId === 'rc_transmitter') {
+            for (let i = 0; i < 16; i++) {
+                const valEl = document.getElementById(`tx-ch-val-${i}`);
+                const fillEl = document.getElementById(`tx-ch-fill-${i}`);
+                if (valEl) valEl.innerText = `${ch[i]}µs`;
+                if (fillEl) {
+                    const pct = Math.max(0, Math.min(100, ((ch[i] - 1000) / 1000) * 100));
+                    fillEl.style.width = `${pct}%`;
+                }
+            }
+        }
+    }
+
+    // ==========================================
     // RENDER ACTIVE LAYOUT & BUTTONS
     // ==========================================
     function renderLayout(layoutId) {
@@ -341,7 +677,333 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
         }
+
+        // 7. Universal RC Transmitter 16-Channel Visualizer Cards
+        if (layoutId === 'rc_transmitter') {
+            const container = document.getElementById('tx-channels-bars-container');
+            if (container && container.children.length === 0) {
+                container.innerHTML = '';
+                for (let i = 0; i < 16; i++) {
+                    const card = document.createElement('div');
+                    card.className = 'tx-ch-card';
+                    card.innerHTML = `
+                        <div class="tx-ch-header">
+                            <span style="color:var(--text-secondary)">CH${i + 1}</span>
+                            <span style="color:var(--accent-cyan); font-family:monospace;" id="tx-ch-val-${i}">1500µs</span>
+                        </div>
+                        <div class="tx-ch-bar-bg">
+                            <div class="tx-ch-bar-fill" id="tx-ch-fill-${i}" style="width: 50%;"></div>
+                        </div>
+                    `;
+                    container.appendChild(card);
+                }
+            }
+            const badge = document.getElementById('tx-protocol-badge');
+            if (badge) badge.innerText = ProtocolManager.config.format || 'CRSF';
+            const mapLbl = document.getElementById('lbl-tx-map');
+            if (mapLbl) mapLbl.innerText = ProtocolManager.config.channelMap || 'AETR';
+        }
     }
+
+    // ==========================================
+    // SETUP AEROMODEL CONTROLS (Drones, Aviões, Helicópteros, Transmissor)
+    // ==========================================
+    function setupAeromodelControls() {
+        if (ProtocolManager.config.stickMode) aeroState.stickMode = ProtocolManager.config.stickMode;
+        if (ProtocolManager.config.channelMap) aeroState.channelMap = ProtocolManager.config.channelMap;
+
+        // ------------------------------------------
+        // A. DRONE / MULTI-ROTOR CONTROLS
+        // ------------------------------------------
+        const btnDroneArm = document.getElementById('btn-drone-arm-toggle');
+        const droneArmInd = document.getElementById('drone-arm-indicator');
+        if (btnDroneArm) {
+            btnDroneArm.addEventListener('click', () => {
+                aeroState.droneArmed = !aeroState.droneArmed;
+                triggerHaptic(40);
+                if (aeroState.droneArmed) {
+                    playBeep(1200, 0.1, 'square');
+                    btnDroneArm.className = 'btn-aero-arm armed';
+                    btnDroneArm.innerText = '⚠️ DESARMAR (ARMADO)';
+                    if (droneArmInd) {
+                        droneArmInd.className = 'aero-pill pill-armed';
+                        droneArmInd.innerText = 'ARMED';
+                    }
+                    logTerminal('DRONE ARMADO - CUIDADO COM AS HÉLICES', 'cmd');
+                } else {
+                    playBeep(400, 0.1, 'sine');
+                    aeroState.throttle = 0;
+                    btnDroneArm.className = 'btn-aero-arm disarmed';
+                    btnDroneArm.innerText = '🔒 ARMAR MOTORES';
+                    if (droneArmInd) {
+                        droneArmInd.className = 'aero-pill pill-disarmed';
+                        droneArmInd.innerText = 'DISARMED';
+                    }
+                    logTerminal('DRONE DESARMADO - MOTORES CORTADOS', 'cmd');
+                }
+            });
+        }
+
+        document.querySelectorAll('.btn-drone-mode').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const mode = e.currentTarget.getAttribute('data-mode') || 'ANGLE';
+                aeroState.droneFlightMode = mode;
+                document.querySelectorAll('.btn-drone-mode').forEach(b => b.classList.remove('active'));
+                e.currentTarget.classList.add('active');
+                triggerHaptic(20);
+                playBeep(850, 0.04);
+                logTerminal(`Drone Modo de Voo: ${mode}`, 'cmd');
+            });
+        });
+
+        const btnBeeper = document.getElementById('btn-drone-beeper');
+        if (btnBeeper) {
+            btnBeeper.addEventListener('click', () => {
+                aeroState.droneBeeper = !aeroState.droneBeeper;
+                btnBeeper.classList.toggle('active', aeroState.droneBeeper);
+                triggerHaptic(30);
+                playBeep(aeroState.droneBeeper ? 1500 : 700, 0.05);
+                logTerminal(`Beeper: ${aeroState.droneBeeper ? 'ON' : 'OFF'}`, 'cmd');
+            });
+        }
+
+        const btnTurtle = document.getElementById('btn-drone-turtle');
+        if (btnTurtle) {
+            btnTurtle.addEventListener('click', () => {
+                aeroState.droneTurtle = !aeroState.droneTurtle;
+                btnTurtle.classList.toggle('active', aeroState.droneTurtle);
+                triggerHaptic(30);
+                playBeep(aeroState.droneTurtle ? 1600 : 500, 0.05);
+                logTerminal(`Turtle Mode (Flip Over): ${aeroState.droneTurtle ? 'ATIVO' : 'DESLIGADO'}`, 'cmd');
+            });
+        }
+
+        // ------------------------------------------
+        // B. AIRPLANE / FIXED WING CONTROLS
+        // ------------------------------------------
+        const btnPlaneCut = document.getElementById('btn-plane-cut-toggle');
+        const planeCutInd = document.getElementById('plane-cut-indicator');
+        if (btnPlaneCut) {
+            btnPlaneCut.addEventListener('click', () => {
+                aeroState.planeMotorCut = !aeroState.planeMotorCut;
+                triggerHaptic(35);
+                if (aeroState.planeMotorCut) {
+                    aeroState.throttle = 0;
+                    playBeep(450, 0.1);
+                    btnPlaneCut.className = 'btn-aero-cut active';
+                    btnPlaneCut.innerText = '🛑 CORTE DE MOTOR: ATIVO';
+                    if (planeCutInd) {
+                        planeCutInd.className = 'aero-pill pill-cut';
+                        planeCutInd.innerText = 'MOTOR CORTADO';
+                    }
+                    logTerminal('Avião: Corte de Motor ATIVADO', 'cmd');
+                } else {
+                    playBeep(1100, 0.1);
+                    btnPlaneCut.className = 'btn-aero-cut';
+                    btnPlaneCut.innerText = '🟢 MOTOR LIBERADO';
+                    if (planeCutInd) {
+                        planeCutInd.className = 'aero-pill pill-armed';
+                        planeCutInd.innerText = 'MOTOR LIBERADO';
+                    }
+                    logTerminal('Avião: Motor LIBERADO para decolagem', 'cmd');
+                }
+            });
+        }
+
+        document.querySelectorAll('.btn-plane-mode').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const mode = e.currentTarget.getAttribute('data-mode') || 'MANUAL';
+                aeroState.planeFlightMode = mode;
+                document.querySelectorAll('.btn-plane-mode').forEach(b => b.classList.remove('active'));
+                e.currentTarget.classList.add('active');
+                triggerHaptic(20);
+                playBeep(850, 0.04);
+                logTerminal(`Avião Modo: ${mode}`, 'cmd');
+            });
+        });
+
+        document.querySelectorAll('.btn-flap').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const val = parseInt(e.currentTarget.getAttribute('data-val')) || 0;
+                aeroState.planeFlaps = val;
+                document.querySelectorAll('.btn-flap').forEach(b => b.classList.remove('active'));
+                e.currentTarget.classList.add('active');
+                triggerHaptic(20);
+                playBeep(750, 0.04);
+                logTerminal(`Flaps: ${val}%`, 'cmd');
+            });
+        });
+
+        const btnPlaneGear = document.getElementById('btn-plane-gear-toggle');
+        if (btnPlaneGear) {
+            btnPlaneGear.addEventListener('click', () => {
+                aeroState.planeGearDown = !aeroState.planeGearDown;
+                triggerHaptic(25);
+                playBeep(800, 0.05);
+                if (aeroState.planeGearDown) {
+                    btnPlaneGear.className = 'btn-gear-toggle down';
+                    btnPlaneGear.innerText = 'BAIXADO';
+                } else {
+                    btnPlaneGear.className = 'btn-gear-toggle up';
+                    btnPlaneGear.innerText = 'RECOLHIDO';
+                }
+                logTerminal(`Trem de Pouso: ${aeroState.planeGearDown ? 'BAIXADO' : 'RECOLHIDO'}`, 'cmd');
+            });
+        }
+
+        // Digital Trims Binding
+        function bindTrim(btnUpId, btnDnId, lblId, key) {
+            const btnUp = document.getElementById(btnUpId);
+            const btnDn = document.getElementById(btnDnId);
+            const lbl = document.getElementById(lblId);
+
+            if (btnUp) {
+                btnUp.addEventListener('click', () => {
+                    if (aeroState.trims[key] < 20) aeroState.trims[key]++;
+                    if (lbl) lbl.innerText = (aeroState.trims[key] > 0 ? '+' : '') + aeroState.trims[key];
+                    triggerHaptic(15);
+                    playBeep(1000 + aeroState.trims[key] * 20, 0.03);
+                });
+            }
+            if (btnDn) {
+                btnDn.addEventListener('click', () => {
+                    if (aeroState.trims[key] > -20) aeroState.trims[key]--;
+                    if (lbl) lbl.innerText = (aeroState.trims[key] > 0 ? '+' : '') + aeroState.trims[key];
+                    triggerHaptic(15);
+                    playBeep(1000 + aeroState.trims[key] * 20, 0.03);
+                });
+            }
+        }
+
+        bindTrim('btn-trim-thr-up', 'btn-trim-thr-dn', 'lbl-trim-thr', 'thr');
+        bindTrim('btn-trim-rud-rt', 'btn-trim-rud-lf', 'lbl-trim-rud', 'rud');
+        bindTrim('btn-trim-ele-up', 'btn-trim-ele-dn', 'lbl-trim-ele', 'ele');
+        bindTrim('btn-trim-ail-rt', 'btn-trim-ail-lf', 'lbl-trim-ail', 'ail');
+
+        // ------------------------------------------
+        // C. RC HELICOPTER CP CONTROLS
+        // ------------------------------------------
+        const btnHeliHold = document.getElementById('btn-heli-hold-toggle');
+        const heliHoldInd = document.getElementById('heli-hold-indicator');
+        if (btnHeliHold) {
+            btnHeliHold.addEventListener('click', () => {
+                aeroState.heliThrottleHold = !aeroState.heliThrottleHold;
+                triggerHaptic(35);
+                if (aeroState.heliThrottleHold) {
+                    playBeep(450, 0.1);
+                    btnHeliHold.className = 'btn-aero-cut active';
+                    btnHeliHold.innerText = '🛑 THROTTLE HOLD: ATIVO';
+                    if (heliHoldInd) {
+                        heliHoldInd.className = 'aero-pill pill-cut';
+                        heliHoldInd.innerText = 'HOLD ATIVO';
+                    }
+                    logTerminal('Helicóptero: Throttle Hold ATIVADO (Motor cortado)', 'cmd');
+                } else {
+                    playBeep(1100, 0.1);
+                    btnHeliHold.className = 'btn-aero-cut';
+                    btnHeliHold.innerText = '🟢 MOTOR LIBERADO';
+                    if (heliHoldInd) {
+                        heliHoldInd.className = 'aero-pill pill-armed';
+                        heliHoldInd.innerText = 'HOLD DESLIGADO';
+                    }
+                    logTerminal('Helicóptero: Motor LIBERADO para voo', 'cmd');
+                }
+            });
+        }
+
+        document.querySelectorAll('.btn-heli-idle').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const idle = e.currentTarget.getAttribute('data-idle') || 'NORMAL';
+                aeroState.heliIdleUp = idle;
+                document.querySelectorAll('.btn-heli-idle').forEach(b => b.classList.remove('active'));
+                e.currentTarget.classList.add('active');
+                triggerHaptic(20);
+                playBeep(900, 0.04);
+                logTerminal(`Helicóptero Idle-Up: ${idle}`, 'cmd');
+            });
+        });
+
+        const sliderHeliGyro = document.getElementById('slider-heli-gyro');
+        if (sliderHeliGyro) {
+            sliderHeliGyro.addEventListener('input', (e) => {
+                const val = parseInt(e.target.value);
+                aeroState.heliGyroGain = val;
+                const lbl = document.getElementById('lbl-heli-gyro');
+                if (lbl) lbl.innerText = val >= 50 ? `AVCS ${val}%` : `NORM ${val}%`;
+            });
+        }
+
+        const btnHeliDr = document.getElementById('btn-heli-dr-toggle');
+        if (btnHeliDr) {
+            btnHeliDr.addEventListener('click', () => {
+                if (aeroState.heliDualRate === 100) {
+                    aeroState.heliDualRate = 70;
+                    btnHeliDr.innerText = '70% TAME';
+                    btnHeliDr.className = 'btn-gear-toggle up';
+                } else {
+                    aeroState.heliDualRate = 100;
+                    btnHeliDr.innerText = '100% SPORT';
+                    btnHeliDr.className = 'btn-gear-toggle down';
+                }
+                triggerHaptic(20);
+                playBeep(850, 0.04);
+                logTerminal(`Helicóptero Dual Rate: ${aeroState.heliDualRate}%`, 'cmd');
+            });
+        }
+
+        // ------------------------------------------
+        // D. UNIVERSAL RC TRANSMITTER 16CH CONTROLS
+        // ------------------------------------------
+        const btnTxMode = document.getElementById('btn-tx-toggle-mode');
+        if (btnTxMode) {
+            btnTxMode.addEventListener('click', () => {
+                aeroState.stickMode = aeroState.stickMode === 2 ? 1 : 2;
+                ProtocolManager.config.stickMode = aeroState.stickMode;
+                btnTxMode.innerText = aeroState.stickMode === 2 ? 'MODO 2 (Esq Thr)' : 'MODO 1 (Dir Thr)';
+                const lRole = document.getElementById('lbl-tx-left-role');
+                const rRole = document.getElementById('lbl-tx-right-role');
+                if (lRole) lRole.innerText = aeroState.stickMode === 2 ? 'Esquerda: Throttle / Rudder' : 'Esquerda: Elevator / Rudder';
+                if (rRole) rRole.innerText = aeroState.stickMode === 2 ? 'Direita: Elevator / Aileron' : 'Direita: Throttle / Aileron';
+                triggerHaptic(25);
+                playBeep(850, 0.04);
+                logTerminal(`Transmissor Stick Mode: Modo ${aeroState.stickMode}`, 'cmd');
+            });
+        }
+
+        document.querySelectorAll('.sw-pos').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const sw = e.currentTarget.getAttribute('data-sw');
+                const pos = e.currentTarget.getAttribute('data-pos');
+                if (sw && pos) {
+                    aeroState.switches[sw] = pos;
+                    const parent = e.currentTarget.parentElement;
+                    if (parent) {
+                        parent.querySelectorAll('.sw-pos').forEach(b => b.classList.remove('active'));
+                    }
+                    e.currentTarget.classList.add('active');
+                    triggerHaptic(20);
+                    playBeep(950, 0.03);
+                    logTerminal(`Switch ${sw}: ${pos}`, 'cmd');
+                }
+            });
+        });
+
+        const potS1 = document.getElementById('tx-pot-s1');
+        if (potS1) {
+            potS1.addEventListener('input', (e) => {
+                aeroState.pots.S1 = parseInt(e.target.value);
+            });
+        }
+
+        const potS2 = document.getElementById('tx-pot-s2');
+        if (potS2) {
+            potS2.addEventListener('input', (e) => {
+                aeroState.pots.S2 = parseInt(e.target.value);
+            });
+        }
+    }
+
+    setupAeromodelControls();
 
     function renderCustomBuilder(layout) {
         const canvas = document.getElementById('custom-builder-canvas');
@@ -747,6 +1409,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (targetEl) targetEl.style.display = 'block';
 
             if (targetId === 'tab-bt-classic') loadPairedDevices();
+            if (targetId === 'tab-usb-otg') loadUsbDevices();
         });
     });
 
@@ -761,6 +1424,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const txtTpl = document.getElementById('proto-template');
         if (txtTpl) txtTpl.value = cfg.template || 'RC:{cmd}:{x}:{y}\\n';
+
+        const selChannelMap = document.getElementById('proto-channel-map');
+        if (selChannelMap) selChannelMap.value = cfg.channelMap || 'AETR';
+
+        const selStickMode = document.getElementById('proto-stick-mode');
+        if (selStickMode) selStickMode.value = String(cfg.stickMode || 2);
 
         const selEnd = document.getElementById('proto-ending');
         if (selEnd) selEnd.value = cfg.lineEnding || '\\n';
@@ -797,12 +1466,31 @@ document.addEventListener('DOMContentLoaded', () => {
         btnSaveProto.addEventListener('click', () => {
             ProtocolManager.config.format = document.getElementById('proto-format').value;
             ProtocolManager.config.template = document.getElementById('proto-template').value;
+
+            const selChannelMap = document.getElementById('proto-channel-map');
+            if (selChannelMap) {
+                ProtocolManager.config.channelMap = selChannelMap.value;
+                aeroState.channelMap = selChannelMap.value;
+            }
+            const selStickMode = document.getElementById('proto-stick-mode');
+            if (selStickMode) {
+                ProtocolManager.config.stickMode = parseInt(selStickMode.value) || 2;
+                aeroState.stickMode = ProtocolManager.config.stickMode;
+            }
+
             ProtocolManager.config.lineEnding = document.getElementById('proto-ending').value;
             ProtocolManager.config.valueRange = document.getElementById('proto-range').value;
             ProtocolManager.config.txRateMs = parseInt(document.getElementById('proto-rate').value) || 50;
             ProtocolManager.config.deadzone = parseInt(document.getElementById('proto-deadzone').value) || 5;
             ProtocolManager.config.differentialSteering = document.getElementById('proto-differential').checked;
             hapticsEnabled = document.getElementById('proto-haptics').checked;
+
+            const badge = document.getElementById('tx-protocol-badge');
+            if (badge) badge.innerText = ProtocolManager.config.format || 'CRSF';
+            const mapLbl = document.getElementById('lbl-tx-map');
+            if (mapLbl) mapLbl.innerText = ProtocolManager.config.channelMap || 'AETR';
+            const btnTxMode = document.getElementById('btn-tx-toggle-mode');
+            if (btnTxMode) btnTxMode.innerText = aeroState.stickMode === 2 ? 'MODO 2 (Esq Thr)' : 'MODO 1 (Dir Thr)';
 
             const protoJson = JSON.stringify(ProtocolManager.config);
             if (window.Android && window.Android.saveConfig) {
@@ -1415,7 +2103,54 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Wi-Fi Connect Confirmation
+    // ==========================================
+    // USB OTG RADIO ADAPTER CONTROLS
+    // ==========================================
+    function loadUsbDevices() {
+        const selectEl = document.getElementById('usb-device-select');
+        const statusEl = document.getElementById('usb-device-status-info');
+        if (!selectEl) return;
+
+        if (window.Android && window.Android.getUsbDevicesJson) {
+            try {
+                const json = window.Android.getUsbDevicesJson();
+                const devices = JSON.parse(json);
+                selectEl.innerHTML = '';
+                if (!devices || devices.length === 0) {
+                    selectEl.innerHTML = '<option value="-1">Nenhum adaptador USB/OTG conectado. Plugue o cabo OTG e clique em Escanear.</option>';
+                    if (statusEl) statusEl.innerText = 'Nenhum rádio detectado via USB';
+                    return;
+                }
+
+                devices.forEach(dev => {
+                    const opt = document.createElement('option');
+                    opt.value = dev.deviceId;
+                    const chip = dev.driverType || 'Serial USB';
+                    const name = dev.productName || dev.deviceName || `Dispositivo USB #${dev.deviceId}`;
+                    opt.innerText = `${name} [${chip} - VID:0x${dev.vendorId ? dev.vendorId.toString(16) : '????'}]`;
+                    selectEl.appendChild(opt);
+                });
+                if (statusEl) statusEl.innerText = `${devices.length} dispositivo(s) OTG pronto(s)`;
+            } catch (e) {
+                selectEl.innerHTML = '<option value="-1">Erro ao listar rádios USB.</option>';
+                if (statusEl) statusEl.innerText = 'Erro na comunicação USB';
+            }
+        } else {
+            selectEl.innerHTML = '<option value="-1">Disponível no app Android com cabo OTG conectado.</option>';
+            if (statusEl) statusEl.innerText = 'Requer Android + cabo OTG';
+        }
+    }
+
+    const btnScanUsb = document.getElementById('btn-scan-usb');
+    if (btnScanUsb) {
+        btnScanUsb.addEventListener('click', () => {
+            loadUsbDevices();
+            triggerHaptic(20);
+            playBeep(750, 0.04);
+        });
+    }
+
+    // Connect Confirmation (Wi-Fi and USB-OTG)
     const btnConfirmConnect = document.getElementById('btn-confirm-connect');
     if (btnConfirmConnect) {
         btnConfirmConnect.addEventListener('click', () => {
@@ -1429,6 +2164,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 if (window.Android && window.Android.connectWifi) {
                     window.Android.connectWifi(mode, host, port);
+                }
+                const modal = document.getElementById('modal-conn');
+                if (modal) modal.classList.remove('active');
+            } else if (activeTab === 'tab-usb-otg') {
+                const selDev = document.getElementById('usb-device-select');
+                const deviceId = selDev ? parseInt(selDev.value) : -1;
+                const baudRate = parseInt(document.getElementById('usb-baud-rate').value) || 115200;
+
+                if (deviceId >= 0 && window.Android && window.Android.connectUsb) {
+                    window.Android.connectUsb(deviceId, baudRate);
+                    logTerminal(`Conectando Rádio USB OTG (ID: ${deviceId}, ${baudRate} bps)...`, 'cmd');
+                } else if (deviceId < 0) {
+                    logTerminal('Selecione ou conecte um rádio USB/OTG válido', 'err');
                 }
                 const modal = document.getElementById('modal-conn');
                 if (modal) modal.classList.remove('active');
@@ -1504,6 +2252,13 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         container.appendChild(item);
+    };
+
+    window.onNativeUsbEvent = (evt, name) => {
+        loadUsbDevices();
+        logTerminal(`[USB-OTG] Dispositivo ${evt}: ${name}`, 'rx');
+        triggerHaptic(40);
+        playBeep(evt === 'ATTACHED' ? 1200 : 500, 0.08);
     };
 
     // ==========================================

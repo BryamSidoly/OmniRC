@@ -8,9 +8,9 @@ O sistema opera com comunicação em tempo real via **Wi-Fi** (UDP, TCP Socket e
 
 ## 📦 APK Compilado e Instalação Rápida
 
-* **Download Direto:** [OmniRC-Remote.apk (GitHub Releases v1.1.0)](https://github.com/BryamSidoly/OmniRC/releases/download/v1.1.0/OmniRC-Remote.apk)
-* **Arquivo no Repositório:** `OmniRC-Remote.apk` (~91 KB)
-* **Versão:** v1.1.0 (Build 2)
+* **Download Direto:** [OmniRC-Remote.apk (GitHub Releases v1.2.0)](https://github.com/BryamSidoly/OmniRC/releases/download/v1.2.0/OmniRC-Remote.apk)
+* **Arquivo no Repositório:** `OmniRC-Remote.apk` (~115 KB)
+* **Versão:** v1.2.0 (Build 3)
 * **Assinatura:** APK Signature Scheme v1, v2 e v3 (compatível do Android 5.0 Lollipop ao Android 14+)
 
 ### Como Instalar no Celular:
@@ -127,6 +127,26 @@ O aplicativo suporta 5 canais físicos de comunicação, cada um otimizado para 
 * **Negociação de MTU:** solicita negociação de MTU de até 512 bytes (`requestMtu(512)`). Em dispositivos que só aceitam MTU padrão de 20 bytes, o app faz fragmentação segura em chunks.
 * **Scanner BLE com RSSI:** localiza dispositivos no ar exibindo o nível de potência de sinal recebido em decibéis (dBm), auxiliando a verificar proximidade.
 
+### 6. Conexão com Adaptador de Rádio via USB / OTG (USB Host Serial) - *Alcance Longo & Baixa Latência*
+* **Como opera:** utiliza a API nativa `android.hardware.usb.*` no modo **USB Host**, transformando o smartphone em uma central transmissora física conectada diretamente a um rádio transmissor ou controladora por cabo OTG.
+* **Hardware e Módulos de Rádio Suportados:**
+  - **Rádios de Telemetria SiK (3DR / Holybro / Readytosky 433 MHz e 915 MHz):** alcance de até 2 a 5 km, comunicação direta com ArduPilot e Pixhawk.
+  - **Módulos Transmissores ExpressLRS (ELRS USB):** dongles e módulos USB ELRS 2.4 GHz e 868/915 MHz (RadioMaster Ranger, HappyModel, BetaFPV).
+  - **Módulos TBS Crossfire (CRSF USB):** transmissor Long Range conectado via porta USB serial.
+  - **Portas USB VCP das Controladoras de Voo:** conexão direta via cabo OTG nas controladoras **Pixhawk (2.4.8, Cube Orange/Yellow)**, **SpeedyBee F405 WING / WING Mini**, **Matek Systems (F405-WING, F722-WING, H743-WING)**, **STM32 Virtual COM Port**, **Arduino** e **ESP32**.
+* **Drivers de Chipsets Seriais Nativos Integrados:**
+  - **Silicon Labs CP210x** (CP2102, CP2104, CP2105) - usado em rádios SiK, ESP32 e placas de telemetria.
+  - **USB CDC-ACM (Communication Device Class)** - padrão USB universal de alta velocidade das placas Pixhawk, Cube, STM32 e Arduino ARM/Leonardo.
+  - **WCH CH340 / CH341** - padrão comum em adaptadores e rádios chineses econômicos.
+  - **FTDI FT232R / FT2232 / FT4232** - referência industrial e rádios Holybro originais.
+  - **Prolific PL2303** - conversores seriais legados.
+* **Velocidades Seriais (Baud Rates) Pré-configuradas:**
+  - `57600`: Padrão de fábrica dos rádios SiK Telemetry (3DR Radio) e portas TELEM1/TELEM2 do ArduPilot.
+  - `115200`: Padrão do ExpressLRS, INAV, Betaflight e IBUS.
+  - `420000`: Padrão CRSF High-Speed UART (ExpressLRS e Crossfire).
+  - `9600`, `19200`, `38400`, `230400`, `460800`, `921600` (Ultra High-Speed).
+* **Hotplug & Detecção em Tempo Real:** o app detecta imediatamente quando um cabo OTG é plugado ou desplugado, recarregando a lista de rádios USB com aviso sonoro e tátil.
+
 ---
 
 ## ⚙️ Funcionamento Detalhado dos Protocolos
@@ -164,6 +184,7 @@ Para carrinhos de esteira, barcos com 2 hélices ou robôs com 2 motores onde n�
 
 ### 4. Formatos de Serialização Suportados
 
+#### A. Protocolos Gerais de Robótica & IoT:
 | Formato | Sintaxe Gerada | Exemplo de Saída | Uso Recomendado |
 | :--- | :--- | :--- | :--- |
 | **Delimitado (`DELIMITED`)** | `{cmd}:{x}:{y}:{val}\n` | `DRIVE:15:85\n` | ESP32/Arduino com `sscanf()` ou `strtok()` |
@@ -173,6 +194,15 @@ Para carrinhos de esteira, barcos com 2 hélices ou robôs com 2 motores onde n�
 | **Hexadecimal (`HEX`)** | `AA [CMD] [X] [Y] [VAL] 55` | `AA 44 0F 55 00 55` | Protocolos binários industriais ou rádio RF |
 | **Template Customizado** | Interpolação textual livre | `M:{left}:{right}\n` ou `RC:{cmd}:{x}:{y}` | Qualquer formato customizado pelo usuário |
 
+#### B. Protocolos Profissionais de Aeromodelismo (Drones, Aviões, Helicópteros):
+| Protocolo | Estrutura de Pacote | Resolução / Canais | Controladoras e Receptores Compatíveis |
+| :--- | :--- | :--- | :--- |
+| **CRSF (Crossfire / ELRS)** | `[0xC8] [24] [0x16] [22B Payload] [CRC8]` | 16 canais (11 bits, 988-2012µs) | ExpressLRS, TBS Crossfire, SpeedyBee, Matek, Radiomaster |
+| **SBUS (Futaba / FrSky)** | `[0x0F] [22B Payload 16ch] [Flags] [0x00]` | 16 canais (11 bits, 1000-2000µs) | Receptores FrSky, FlySky, Futaba, RadioMaster ER, Pixhawk |
+| **IBUS (FlySky)** | `[0x20 0x40] [14 x uint16 LE] [CRC16]` | 14 canais (uint16 LE 1000-2000µs) | Receptores FlySky FS-iA6B, FS-iA10B, rádios FS-i6/Paladin |
+| **MAVLink v1 (ArduPilot)** | `[0xFE] [18] [Seq] [Sys 255] [Comp 190] [Msg 70] [CRC16]` | 8 canais `RC_CHANNELS_OVERRIDE` | Pixhawk (2.4.8, Cube Orange/Yellow), Matek H743, Mission Planner |
+| **MSP (MultiWii / INAV)** | `[$M<] [16] [200] [8 x uint16 LE] [CRC]` | 8 canais `MSP_SET_RAW_RC` | INAV (Asas/Aviões), Betaflight (Quads FPV), Cleanflight |
+
 #### Marcadores Suportados no Template Customizado:
 * `{cmd}`: Nome do comando (ex: `DRIVE`, `SPEED`, `JOY1`).
 * `{x}`: Valor do eixo horizontal mapeado.
@@ -180,7 +210,17 @@ Para carrinhos de esteira, barcos com 2 hélices ou robôs com 2 motores onde n�
 * `{val}`: Valor escalar (slider ou botão).
 * `{left}`: Valor calculado para o motor esquerdo (tração diferencial).
 * `{right}`: Valor calculado para o motor direito (tração diferencial).
+* `{ch1}` a `{ch6}`: Canais diretos de aeromodelismo em microssegundos (1000 a 2000 µs).
 * `\n` ou `\r\n`: Quebras de linha reais.
+
+#### Mapeamento de Canais (Channel Map) & Modo dos Sticks:
+* **Ordem dos Canais:**
+  - **AETR:** Canal 1 = Aileron, Canal 2 = Elevator, Canal 3 = Throttle, Canal 4 = Rudder (Padrão de mercado ELRS, TBS Crossfire, INAV, Betaflight, MultiWii).
+  - **TAER:** Canal 1 = Throttle, Canal 2 = Aileron, Canal 3 = Elevator, Canal 4 = Rudder (Padrão Spektrum / Horizon Hobby).
+  - **RETA:** Canal 1 = Rudder, Canal 2 = Elevator, Canal 3 = Throttle, Canal 4 = Aileron.
+* **Modo dos Sticks (Transmitter Mode):**
+  - **Modo 2 (Mais popular):** Stick Esquerdo = Throttle + Yaw | Stick Direito = Pitch + Roll.
+  - **Modo 1:** Stick Esquerdo = Pitch + Yaw | Stick Direito = Throttle + Roll.
 
 ### 5. Loop Temporizado de Transmissão (Tx Rate Loop)
 Para evitar saturar o buffer serial ou o stack de rede do microcontrolador com centenas de eventos de touch por segundo, o OmniRC utiliza um **loop desacoplado**:
@@ -234,6 +274,28 @@ No menu de layouts, selecione **🎨 Layout Personalizado**. Você pode montar u
 * **🛡️ Tanque / Esteiras:** analógicos verticais independentes para esteira esquerda e direita com botões para giro de 360° no próprio eixo.
 * **🎮 Gamepad Console:** dois analógicos de 360° e botões estilo console (A, B, X, Y, L1, R1).
 * **🦾 Braço Robótico / Servos:** 4 sliders analógicos para juntas articuladas (Base S1, Ombro S2, Cotovelo S3, Garra S4) e botões de poses pré-salvas (Home, Pick, Drop).
+* **🚁 Drone / Multirrotor (Quads, Hexas, FPV Freestyle):**
+  - Analógico Esquerdo: Acelerador (Throttle 0..100%, sem mola) & Guinada (Yaw, retorno ao centro).
+  - Analógico Direito: Arfagem (Pitch) & Rolagem (Roll) com retorno automático ao centro.
+  - Chave de Segurança ARM / DISARM com iluminação pulsante e bloqueio de acelerador a 1000 µs quando desarmado.
+  - Seletor de Modos de Voo (CH6): ACRO (taxa manual), ANGLE (auto-nivelamento) e RTH (Return-to-Home por GPS).
+  - Botões Rápidos: Buzzer/Beeper localizador sonoro (CH7) e Turtle Mode (Flip Over After Crash, CH8).
+  - Monitor HUD dos 4 canais em tempo real (AIL, ELE, THR, RUD em microssegundos).
+* **✈️ Asa Fixa / Aeromodelo (Aviões, Asas Voadoras, Planadores):**
+  - Chave de Corte de Motor (Motor Cut): trava o acelerador em 1000 µs para segurança em solo e manutenção.
+  - Modos de Voo INAV & ArduPlane (CH6): MANUAL (controle direto dos servos), FBWA (Fly-By-Wire A estabilizado), CRUISE e RTH autônomo.
+  - Superfícies de Comando: Flaps de 3 posições (0%, 50%, 100% no CH7) e Trem de Pouso Retrátil (CH8, Baixado/Recolhido).
+  - Trims Digitais Sub-milimétricos: botões de trim com passos de ajuste (-20 a +20) com bipes tonais para Rudder, Throttle, Elevator e Aileron.
+* **🚁 Helicóptero RC CP (Passo Coletivo & Flybarless):**
+  - Chave de Segurança Throttle Hold: corte imediato de rotação do rotor para autorrotação de emergência.
+  - Condições de Voo (Idle-Up): NORMAL (curva linear), IDLE-1 (80% headspeed para acrobacia) e IDLE-2 (100% headspeed 3D para voo invertido).
+  - Controle de Ganho do Giroscópio de Cauda: slider analógico para modo Trava-Cauda AVCS / Heading-Hold (50% a 100%) ou modo Normal.
+  - Dual Rate (D/R): alternância instantânea entre 100% SPORT e 70% TAME.
+* **📻 Transmissor Universal 16 Canais (Estilo EdgeTX / OpenTX / RadioMaster):**
+  - Chaveamento instantâneo entre MODO 1 e MODO 2 (Throttle na esquerda ou direita).
+  - Chaves de Chassi: 3 chaves de 3 posições SA (CH5), SB (CH6), SC (CH7) e 1 chave de 2 posições SD (CH8).
+  - 2 Potenciômetros Deslizantes S1 (CH9) e S2 (CH10) para gimbals ou flaps proporcionais.
+  - Matriz Monitora de 16 Canais: 16 cards com barras de nível gráficas exibindo a posição em microssegundos de cada canal simultaneamente.
 * **📟 Terminal Serial & Monitor:** terminal de telemetria bidirecional, envio manual e histórico de mensagens.
 
 ---
@@ -341,6 +403,10 @@ O diretório [`examples/`](file:///C:/Users/Bryan/.gemini/antigravity/scratch/Om
 | **Raspberry Pi 3/4/5/Zero 2**| [`rpi_rc_car_camera.py`](file:///C:/Users/Bryan/.gemini/antigravity/scratch/OmniRC/examples/raspberry_pi/rpi_rc_car_camera.py) | Wi-Fi UDP + Flask | Python 3 | Servidor de vídeo FPV MJPEG + Socket UDP em threads |
 | **Raspberry Pi Pico W** | [`pico_w_udp_car.py`](file:///C:/Users/Bryan/.gemini/antigravity/scratch/OmniRC/examples/pico_w/pico_w_udp_car.py) | Wi-Fi UDP (8888) | MicroPython | Modo AP ou Station, PWM de motores, não-bloqueante |
 | **ESP8266 (NodeMCU / D1)** | [`esp8266_udp_car.ino`](file:///C:/Users/Bryan/.gemini/antigravity/scratch/OmniRC/examples/esp8266/esp8266_udp_car.ino) | Wi-Fi UDP (8888) | C++ (Arduino) | Solução econômica, Fail-Safe, acionamento Ponte H |
+| **ESP32 (Asas / Servos / ESC)** | [`crsf_elrs_decoder_esp32.ino`](file:///C:/Users/Bryan/.gemini/antigravity/scratch/OmniRC/examples/flight_controllers/crsf_elrs_decoder_esp32.ino) | CRSF / ELRS (UDP/Serial) | C++ (Arduino) | Decodifica CRSF 16CH 11-bit e aciona servos/ESC PWM diretos |
+| **Arduino (Receptores Clássicos)**| [`sbus_decoder_arduino.ino`](file:///C:/Users/Bryan/.gemini/antigravity/scratch/OmniRC/examples/flight_controllers/sbus_decoder_arduino.ino) | SBUS (Serial 25B) | C++ (Arduino) | Decodificador Futaba/FrSky/RadioMaster SBUS com Servo.h |
+| **Pixhawk / Cube / ArduPilot** | [`ardupilot_mavlink_esp32.ino`](file:///C:/Users/Bryan/.gemini/antigravity/scratch/OmniRC/examples/flight_controllers/ardupilot_mavlink_esp32.ino) | MAVLink v1 (#70) | C++ (Arduino) | Ponte Wi-Fi UDP / Bluetooth para TELEM1/TELEM2 com Heartbeat |
+| **SpeedyBee / Matek (INAV)** | [`inav_betaflight_msp_esp32.ino`](file:///C:/Users/Bryan/.gemini/antigravity/scratch/OmniRC/examples/flight_controllers/inav_betaflight_msp_esp32.ino) | MSP Serial (#200) | C++ (Arduino) | Ponte MSP_SET_RAW_RC para controladoras INAV / Betaflight |
 
 ---
 
@@ -427,6 +493,31 @@ Utiliza o chip RP2040 Wi-Fi rodando MicroPython puro:
 
 ### 7. ESP8266 NodeMCU / D1 Mini ([`esp8266_udp_car.ino`](file:///C:/Users/Bryan/.gemini/antigravity/scratch/OmniRC/examples/esp8266/esp8266_udp_car.ino))
 Projeto de ultra-baixo custo para módulos baseados em ESP8266 (ESP-12E/F) com Wi-Fi UDP e controle direto de pontes H compactas (L9110S, DRV8833 ou L298N).
+
+---
+
+### 8. ESP32 com Decodificador CRSF / ExpressLRS & Servos PWM ([`crsf_elrs_decoder_esp32.ino`](file:///C:/Users/Bryan/.gemini/antigravity/scratch/OmniRC/examples/flight_controllers/crsf_elrs_decoder_esp32.ino))
+Recebe quadros CRSF de 26 bytes (padrão ExpressLRS / TBS Crossfire) via Wi-Fi UDP ou Serial/USB-OTG, valida CRC8 DVB-S2 (polinômio `0xD5`), desempacota os 16 canais de 11 bits e aciona diretamente servos analógicos/digitais e ESCs brushless nas GPIOs através da biblioteca `ESP32Servo`. Possui fail-safe automático com corte de motor em 500 ms de perda de sinal.
+
+---
+
+### 9. Arduino com Decodificador SBUS Futaba/FrSky ([`sbus_decoder_arduino.ino`](file:///C:/Users/Bryan/.gemini/antigravity/scratch/OmniRC/examples/flight_controllers/sbus_decoder_arduino.ino))
+Para aeromodelos clássicos usando placas Arduino Uno/Nano: decodifica os quadros seriais de 25 bytes do protocolo SBUS recebidos via Bluetooth HC-05/06 ou USB-OTG a 115200 bps e gera pulsos PWM individuais (1000 a 2000 µs) para até 5 servos e ESCs com a biblioteca nativa `Servo.h`.
+
+---
+
+### 10. ESP32 como Ponte MAVLink para ArduPilot & Pixhawk ([`ardupilot_mavlink_esp32.ino`](file:///C:/Users/Bryan/.gemini/antigravity/scratch/OmniRC/examples/flight_controllers/ardupilot_mavlink_esp32.ino))
+Atua como rádio de telemetria sem fio conectado à porta TELEM1/TELEM2 (UART a 57600 bps) de controladoras de nível profissional e autônomo (**Pixhawk 2.4.8, Cube Orange, Cube Yellow, Matek H743**):
+* Mantém o link GCS ativo enviando pacotes Heartbeat MAVLink v1 (msg #0) a cada 1 segundo.
+* Encaminha datagramas UDP recebidos do OmniRC contendo `RC_CHANNELS_OVERRIDE` (msg #70) para os canais de comando do piloto automático.
+* Repassa a telemetria reversa enviada pela Pixhawk de volta para o app.
+
+---
+
+### 11. ESP32 como Ponte MSP para SpeedyBee & Matek com INAV / Betaflight ([`inav_betaflight_msp_esp32.ino`](file:///C:/Users/Bryan/.gemini/antigravity/scratch/OmniRC/examples/flight_controllers/inav_betaflight_msp_esp32.ino))
+Conecta-se a uma porta UART livre a 115200 bps de controladoras dedicadas de voo (**SpeedyBee F405 WING / WING Mini, Matek Systems F405-WING, F722-WING**):
+* Recebe pacotes de rádio controle binários `MSP_SET_RAW_RC` (comando 200 do protocolo MultiWii Serial Protocol v1) enviados pelo OmniRC via Wi-Fi UDP ou Bluetooth.
+* Controla diretamente Superfícies de Voo (Roll, Pitch, Yaw), Acelerador (Throttle), Chave de Arme (AUX1/ARM), Modos de Voo (AUX2: Acro, Angle, RTH), Flaps/Beeper (AUX3) e Trem/Turtle (AUX4).
 
 ---
 

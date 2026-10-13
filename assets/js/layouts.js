@@ -82,6 +82,66 @@ const LayoutManager = {
             type: 'terminal',
             description: 'Envio manual de comandos de texto / hexadecimal e monitor em tempo real.',
             quickCommands: ['PING', 'STATUS', 'STOP', 'VERSION', 'RESET', 'HELP']
+        },
+        drone_quad: {
+            id: 'drone_quad',
+            name: '🚁 Drone / Multirrotor (FPV / INAV / Betaflight)',
+            type: 'drone_quad',
+            description: 'Controle clássico de 4 eixos (Roll, Pitch, Yaw, Throttle), chave ARM de segurança, Modos de Voo (Acro, Angle, RTH), Beeper e Turtle flip.',
+            armState: false,
+            flightMode: 'ANGLE',
+            beeper: false,
+            turtle: false,
+            buttons: [
+                { id: 'btn_drone_arm', label: '🔒 DISARMED', cmd: 'ARM', type: 'arm_toggle', active: false, color: '#00FF88' },
+                { id: 'btn_drone_mode', label: '🛡️ Modo: ANGLE', cmd: 'FLIGHT_MODE', type: 'mode_cycle', color: '#00E5FF' },
+                { id: 'btn_drone_beep', label: '🔊 Beeper', cmd: 'BEEPER', type: 'momentary', color: '#FFD700' },
+                { id: 'btn_drone_turtle', label: '🐢 Turtle Flip', cmd: 'TURTLE', type: 'toggle', active: false, color: '#FF0055' }
+            ]
+        },
+        airplane_wing: {
+            id: 'airplane_wing',
+            name: '✈️ Avião / Asa Fixa (Fixed Wing / ArduPlane)',
+            type: 'airplane_wing',
+            description: 'Superfícies de controle Aileron, Profundor, Leme, Acelerador, Flaps em 3 estágios, Trem de Pouso retrátil, Motor Cut e Trims digitais.',
+            motorCut: true,
+            flightMode: 'MANUAL',
+            flaps: 0,
+            gearDown: true,
+            buttons: [
+                { id: 'btn_plane_cut', label: '🛑 MOTOR CUT: ATIVO', cmd: 'MOTOR_CUT', type: 'cut_toggle', active: true, color: '#FF3366' },
+                { id: 'btn_plane_mode', label: '✈️ Modo: MANUAL', cmd: 'PLANE_MODE', type: 'mode_cycle', color: '#00E5FF' },
+                { id: 'btn_plane_flaps', label: '🪶 Flaps: 0%', cmd: 'FLAPS', type: 'flap_cycle', color: '#00FF88' },
+                { id: 'btn_plane_gear', label: '🛞 Trem: BAIXADO', cmd: 'GEAR', type: 'gear_toggle', active: true, color: '#FFD700' }
+            ],
+            trims: { ail: 0, ele: 0, rud: 0, thr: 0 }
+        },
+        heli_cp: {
+            id: 'heli_cp',
+            name: '🚁 Helicóptero RC (Collective Pitch 3D / Scale)',
+            type: 'heli_cp',
+            description: 'Passo Coletivo e Cíclico, Throttle Hold (Auto-rotação), Chave Idle-Up 3D, Ganho de Giroscópio Trava-Cauda (AVCS) e Chave Dual Rate.',
+            throttleHold: true,
+            idleUpMode: 'NORMAL',
+            gyroGain: 70,
+            dualRate: 100,
+            buttons: [
+                { id: 'btn_heli_hold', label: '🛑 THROTTLE HOLD: ON', cmd: 'THROTTLE_HOLD', type: 'hold_toggle', active: true, color: '#FF3366' },
+                { id: 'btn_heli_idle', label: '⚡ Idle-Up: NORMAL', cmd: 'IDLE_UP', type: 'idle_cycle', color: '#00E5FF' },
+                { id: 'btn_heli_dr', label: '🎯 D/R: 100% Sport', cmd: 'DUAL_RATE', type: 'dr_toggle', color: '#00FF88' },
+                { id: 'btn_heli_gyro', label: '🧭 Gyro: AVCS 70%', cmd: 'GYRO_MODE', type: 'gyro_cycle', color: '#FFD700' }
+            ]
+        },
+        rc_transmitter: {
+            id: 'rc_transmitter',
+            name: '📻 Rádio Transmissor Geral (Universal 16CH)',
+            type: 'rc_transmitter',
+            description: 'Emulador profissional de rádio transmissor 16 canais (estilo RadioMaster TX16S/Boxer/Taranis) com alternância Modo 1/Modo 2, ordem de canais AETR/TAER, 4 Trims e 6 Chaves.',
+            stickMode: 2,
+            channelMap: 'AETR',
+            switches: { SA: 0, SB: 0, SC: 0, SD: 0 },
+            pots: { S1: 50, S2: 50 },
+            trims: { ch1: 0, ch2: 0, ch3: 0, ch4: 0 }
         }
     },
 

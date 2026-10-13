@@ -20,12 +20,22 @@
 
             <div class="nav-actions">
                 <select id="layout-select" class="select-layout">
-                    <option value="rc_car">🏎️ Carro RC / Rover</option>
-                    <option value="tank">🛡️ Tanque / Esteiras</option>
-                    <option value="gamepad">🎮 Gamepad Console</option>
-                    <option value="robot_arm">🦾 Braço Robótico</option>
-                    <option value="custom_matrix">🎨 Layout Personalizado</option>
-                    <option value="terminal">📟 Terminal / Log</option>
+                    <optgroup label="Terrestres & Robótica">
+                        <option value="rc_car">🏎️ Carro RC / Rover</option>
+                        <option value="tank">🛡️ Tanque / Esteiras</option>
+                        <option value="gamepad">🎮 Gamepad Console</option>
+                        <option value="robot_arm">🦾 Braço Robótico</option>
+                    </optgroup>
+                    <optgroup label="Aeromodelismo (Drones & Asas)">
+                        <option value="drone_quad">🚁 Drone / Multirrotor</option>
+                        <option value="airplane_wing">✈️ Avião / Asa Fixa</option>
+                        <option value="heli_cp">🚁 Helicóptero RC 3D</option>
+                        <option value="rc_transmitter">📻 Rádio Transmissor 16CH</option>
+                    </optgroup>
+                    <optgroup label="Customização & Monitor">
+                        <option value="custom_matrix">🎨 Layout Personalizado</option>
+                        <option value="terminal">📟 Terminal / Log</option>
+                    </optgroup>
                 </select>
 
                 <button id="btn-open-camera" class="icon-btn" title="Câmera FPV / Vídeo">📹 Câmera</button>
@@ -196,6 +206,316 @@
                 </div>
             </div>
 
+            <!-- 7. DRONE / MULTI-ROTOR LAYOUT -->
+            <div id="view-drone_quad" class="layout-container">
+                <div class="aero-layout">
+                    <!-- Left Stick: Throttle (Vertical) & Yaw (Horizontal) -->
+                    <div class="joystick-zone aero-zone">
+                        <div id="joy-drone-left" class="joystick-base"></div>
+                        <span class="joystick-label">Acelerador & Guinada (Yaw)</span>
+                        <div class="aero-telemetry-pill">
+                            <span id="telemetry-drone-thr">THR: 0% (1000µs)</span>
+                            <span id="telemetry-drone-yaw">YAW: 0%</span>
+                        </div>
+                    </div>
+
+                    <!-- Center Cockpit Console -->
+                    <div class="aero-center-console">
+                        <div class="aero-status-box">
+                            <div class="aero-title-row">
+                                <span>🚁 SISTEMA MULTIRROTOR</span>
+                                <span id="drone-arm-indicator" class="aero-pill pill-disarmed">DISARMED</span>
+                            </div>
+                            <div class="aero-safety-bar">
+                                <button id="btn-drone-arm-toggle" class="btn-aero-arm disarmed">🔒 ARMAR MOTORES</button>
+                            </div>
+                        </div>
+
+                        <!-- Flight Modes -->
+                        <div class="aero-flight-modes">
+                            <div class="aero-mode-label">Modo de Voo (CH6):</div>
+                            <div class="aero-mode-buttons">
+                                <button class="btn-drone-mode" data-mode="ACRO">ACRO</button>
+                                <button class="btn-drone-mode active" data-mode="ANGLE">ANGLE</button>
+                                <button class="btn-drone-mode" data-mode="RTH">RTH (GPS)</button>
+                            </div>
+                        </div>
+
+                        <!-- Drone Action Buttons (Beeper, Turtle) -->
+                        <div id="drone-buttons" class="buttons-grid" style="grid-template-columns: 1fr 1fr; margin-top: 8px;">
+                            <button id="btn-drone-beeper" class="btn-action-tile" style="border-color: #FFD700; color: #FFD700;">🔊 Beeper</button>
+                            <button id="btn-drone-turtle" class="btn-action-tile" style="border-color: #FF0055; color: #FF0055;">🐢 Turtle Flip</button>
+                        </div>
+
+                        <!-- 4 Channels Monitor in microseconds -->
+                        <div class="aero-channels-summary">
+                            <div class="ch-meter"><span class="ch-lbl">AIL:</span><span id="meter-drone-ail" class="ch-val">1500µs</span></div>
+                            <div class="ch-meter"><span class="ch-lbl">ELE:</span><span id="meter-drone-ele" class="ch-val">1500µs</span></div>
+                            <div class="ch-meter"><span class="ch-lbl">THR:</span><span id="meter-drone-thr" class="ch-val">1000µs</span></div>
+                            <div class="ch-meter"><span class="ch-lbl">RUD:</span><span id="meter-drone-rud" class="ch-val">1500µs</span></div>
+                        </div>
+                    </div>
+
+                    <!-- Right Stick: Pitch (Vertical) & Roll (Horizontal) -->
+                    <div class="joystick-zone aero-zone">
+                        <div id="joy-drone-right" class="joystick-base"></div>
+                        <span class="joystick-label">Arfagem (Pitch) & Rolagem (Roll)</span>
+                        <div class="aero-telemetry-pill">
+                            <span id="telemetry-drone-pitch">PITCH: 0%</span>
+                            <span id="telemetry-drone-roll">ROLL: 0%</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 8. AIRPLANE / FIXED WING LAYOUT -->
+            <div id="view-airplane_wing" class="layout-container">
+                <div class="aero-layout">
+                    <!-- Left Stick: Throttle & Rudder with Trims -->
+                    <div class="joystick-zone aero-zone">
+                        <div class="trim-bar-v left-trim">
+                            <button class="trim-btn" id="btn-trim-thr-up">▲</button>
+                            <span class="trim-lbl" id="lbl-trim-thr">0</span>
+                            <button class="trim-btn" id="btn-trim-thr-dn">▼</button>
+                        </div>
+                        <div id="joy-plane-left" class="joystick-base"></div>
+                        <span class="joystick-label">Acelerador & Leme (Rudder)</span>
+                        <div class="aero-telemetry-pill">
+                            <span id="telemetry-plane-thr">THR: 0%</span>
+                            <span id="telemetry-plane-rud">RUD: 0%</span>
+                        </div>
+                        <div class="trim-bar-h">
+                            <button class="trim-btn" id="btn-trim-rud-lf">◄</button>
+                            <span class="trim-lbl" id="lbl-trim-rud">0</span>
+                            <button class="trim-btn" id="btn-trim-rud-rt">►</button>
+                        </div>
+                    </div>
+
+                    <!-- Center Console: Motor Cut, Flaps, Gear, Modes -->
+                    <div class="aero-center-console">
+                        <div class="aero-status-box">
+                            <div class="aero-title-row">
+                                <span>✈️ ASA FIXA / AVIÃO</span>
+                                <span id="plane-cut-indicator" class="aero-pill pill-cut">MOTOR CORTADO</span>
+                            </div>
+                            <div class="aero-safety-bar">
+                                <button id="btn-plane-cut-toggle" class="btn-aero-cut active">🛑 CORTE DE MOTOR: ATIVO</button>
+                            </div>
+                        </div>
+
+                        <!-- Flight Modes -->
+                        <div class="aero-flight-modes">
+                            <div class="aero-mode-label">Modo de Voo (INAV/ArduPlane):</div>
+                            <div class="aero-mode-buttons">
+                                <button class="btn-plane-mode active" data-mode="MANUAL">MANUAL</button>
+                                <button class="btn-plane-mode" data-mode="FBWA">FBWA</button>
+                                <button class="btn-plane-mode" data-mode="CRUISE">CRUISE</button>
+                                <button class="btn-plane-mode" data-mode="RTH">RTH</button>
+                            </div>
+                        </div>
+
+                        <!-- Flaps & Retracts -->
+                        <div class="aero-surfaces-grid">
+                            <div class="surface-card">
+                                <label>🪶 Flaps (CH7):</label>
+                                <div class="flaps-selector">
+                                    <button class="btn-flap active" data-val="0">0%</button>
+                                    <button class="btn-flap" data-val="50">50%</button>
+                                    <button class="btn-flap" data-val="100">100%</button>
+                                </div>
+                            </div>
+                            <div class="surface-card">
+                                <label>🛞 Trem de Pouso (CH8):</label>
+                                <button id="btn-plane-gear-toggle" class="btn-gear-toggle down">BAIXADO</button>
+                            </div>
+                        </div>
+
+                        <div class="aero-channels-summary">
+                            <div class="ch-meter"><span class="ch-lbl">AIL:</span><span id="meter-plane-ail" class="ch-val">1500µs</span></div>
+                            <div class="ch-meter"><span class="ch-lbl">ELE:</span><span id="meter-plane-ele" class="ch-val">1500µs</span></div>
+                            <div class="ch-meter"><span class="ch-lbl">THR:</span><span id="meter-plane-thr" class="ch-val">1000µs</span></div>
+                            <div class="ch-meter"><span class="ch-lbl">RUD:</span><span id="meter-plane-rud" class="ch-val">1500µs</span></div>
+                        </div>
+                    </div>
+
+                    <!-- Right Stick: Elevator & Aileron with Trims -->
+                    <div class="joystick-zone aero-zone">
+                        <div class="trim-bar-v right-trim">
+                            <button class="trim-btn" id="btn-trim-ele-up">▲</button>
+                            <span class="trim-lbl" id="lbl-trim-ele">0</span>
+                            <button class="trim-btn" id="btn-trim-ele-dn">▼</button>
+                        </div>
+                        <div id="joy-plane-right" class="joystick-base"></div>
+                        <span class="joystick-label">Profundor (Elevator) & Aileron</span>
+                        <div class="aero-telemetry-pill">
+                            <span id="telemetry-plane-ele">ELE: 0%</span>
+                            <span id="telemetry-plane-ail">AIL: 0%</span>
+                        </div>
+                        <div class="trim-bar-h">
+                            <button class="trim-btn" id="btn-trim-ail-lf">◄</button>
+                            <span class="trim-lbl" id="lbl-trim-ail">0</span>
+                            <button class="trim-btn" id="btn-trim-ail-rt">►</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 9. RC HELICOPTER LAYOUT -->
+            <div id="view-heli_cp" class="layout-container">
+                <div class="aero-layout">
+                    <!-- Left Stick: Collective Pitch & Tail Rotor -->
+                    <div class="joystick-zone aero-zone">
+                        <div id="joy-heli-left" class="joystick-base"></div>
+                        <span class="joystick-label">Passo Coletivo & Cauda (Rudder)</span>
+                        <div class="aero-telemetry-pill">
+                            <span id="telemetry-heli-col">COL: 0%</span>
+                            <span id="telemetry-heli-rud">RUD: 0%</span>
+                        </div>
+                    </div>
+
+                    <!-- Center Heli Control Console -->
+                    <div class="aero-center-console">
+                        <div class="aero-status-box">
+                            <div class="aero-title-row">
+                                <span>🚁 HELICÓPTERO RC CP</span>
+                                <span id="heli-hold-indicator" class="aero-pill pill-cut">HOLD ATIVO</span>
+                            </div>
+                            <div class="aero-safety-bar">
+                                <button id="btn-heli-hold-toggle" class="btn-aero-cut active">🛑 THROTTLE HOLD: ATIVO</button>
+                            </div>
+                        </div>
+
+                        <!-- Idle-Up Condition Selection -->
+                        <div class="aero-flight-modes">
+                            <div class="aero-mode-label">Condição de Voo (Idle-Up):</div>
+                            <div class="aero-mode-buttons">
+                                <button class="btn-heli-idle active" data-idle="NORMAL">NORMAL</button>
+                                <button class="btn-heli-idle" data-idle="IDLE1">IDLE-1 (80%)</button>
+                                <button class="btn-heli-idle" data-idle="IDLE2">IDLE-2 (100% 3D)</button>
+                            </div>
+                        </div>
+
+                        <!-- Gyro Gain & Dual Rate -->
+                        <div class="aero-surfaces-grid">
+                            <div class="surface-card">
+                                <div style="display:flex; justify-content:space-between;">
+                                    <label>🧭 Giroscópio Cauda:</label>
+                                    <span id="lbl-heli-gyro" class="telemetry-val">AVCS 70%</span>
+                                </div>
+                                <input type="range" id="slider-heli-gyro" class="custom-slider" min="0" max="100" value="70">
+                            </div>
+                            <div class="surface-card">
+                                <label>🎯 Taxa de Comando (D/R):</label>
+                                <button id="btn-heli-dr-toggle" class="btn-gear-toggle down">100% SPORT</button>
+                            </div>
+                        </div>
+
+                        <div class="aero-channels-summary">
+                            <div class="ch-meter"><span class="ch-lbl">AIL:</span><span id="meter-heli-ail" class="ch-val">1500µs</span></div>
+                            <div class="ch-meter"><span class="ch-lbl">ELE:</span><span id="meter-heli-ele" class="ch-val">1500µs</span></div>
+                            <div class="ch-meter"><span class="ch-lbl">COL:</span><span id="meter-heli-col" class="ch-val">1000µs</span></div>
+                            <div class="ch-meter"><span class="ch-lbl">RUD:</span><span id="meter-heli-rud" class="ch-val">1500µs</span></div>
+                        </div>
+                    </div>
+
+                    <!-- Right Stick: Cyclic Elevator & Aileron -->
+                    <div class="joystick-zone aero-zone">
+                        <div id="joy-heli-right" class="joystick-base"></div>
+                        <span class="joystick-label">Cíclico (Elevator / Aileron)</span>
+                        <div class="aero-telemetry-pill">
+                            <span id="telemetry-heli-ele">ELE: 0%</span>
+                            <span id="telemetry-heli-ail">AIL: 0%</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 10. UNIVERSAL RC TRANSMITTER 16CH LAYOUT -->
+            <div id="view-rc_transmitter" class="layout-container">
+                <div class="rc-transmitter-layout">
+                    <!-- Top Switches and Pots Bar -->
+                    <div class="tx-top-switches-bar">
+                        <div class="tx-switch-item">
+                            <span class="tx-sw-name">SA (CH5)</span>
+                            <div class="tx-3pos-switch" id="sw-tx-sa">
+                                <button class="sw-pos active" data-sw="SA" data-pos="UP">▲</button>
+                                <button class="sw-pos" data-sw="SA" data-pos="MID">●</button>
+                                <button class="sw-pos" data-sw="SA" data-pos="DN">▼</button>
+                            </div>
+                        </div>
+                        <div class="tx-switch-item">
+                            <span class="tx-sw-name">SB (CH6)</span>
+                            <div class="tx-3pos-switch" id="sw-tx-sb">
+                                <button class="sw-pos active" data-sw="SB" data-pos="UP">▲</button>
+                                <button class="sw-pos" data-sw="SB" data-pos="MID">●</button>
+                                <button class="sw-pos" data-sw="SB" data-pos="DN">▼</button>
+                            </div>
+                        </div>
+                        <div class="tx-pot-item">
+                            <span class="tx-sw-name">S1 (CH9)</span>
+                            <input type="range" id="tx-pot-s1" class="custom-slider" min="1000" max="2000" value="1500">
+                        </div>
+                        <div class="tx-config-pill">
+                            <button id="btn-tx-toggle-mode" class="btn-primary" style="font-size:0.75rem; padding:4px 8px;">MODO 2 (Esq Thr)</button>
+                            <span id="lbl-tx-map" style="font-size:0.75rem; color:var(--accent-cyan); font-weight:bold;">AETR</span>
+                        </div>
+                        <div class="tx-pot-item">
+                            <span class="tx-sw-name">S2 (CH10)</span>
+                            <input type="range" id="tx-pot-s2" class="custom-slider" min="1000" max="2000" value="1500">
+                        </div>
+                        <div class="tx-switch-item">
+                            <span class="tx-sw-name">SC (CH7)</span>
+                            <div class="tx-3pos-switch" id="sw-tx-sc">
+                                <button class="sw-pos active" data-sw="SC" data-pos="UP">▲</button>
+                                <button class="sw-pos" data-sw="SC" data-pos="MID">●</button>
+                                <button class="sw-pos" data-sw="SC" data-pos="DN">▼</button>
+                            </div>
+                        </div>
+                        <div class="tx-switch-item">
+                            <span class="tx-sw-name">SD (CH8)</span>
+                            <div class="tx-2pos-switch" id="sw-tx-sd">
+                                <button class="sw-pos active" data-sw="SD" data-pos="UP">▲</button>
+                                <button class="sw-pos" data-sw="SD" data-pos="DN">▼</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Main Stick & Channel Monitoring Area -->
+                    <div class="tx-body-area">
+                        <!-- Left Stick -->
+                        <div class="joystick-zone tx-joy-zone">
+                            <div id="joy-tx-left" class="joystick-base"></div>
+                            <span class="joystick-label" id="lbl-tx-left-role">Esquerda: Throttle / Rudder</span>
+                            <div class="tx-joy-telemetry">
+                                <span id="telemetry-tx-left-y">Y: 0%</span>
+                                <span id="telemetry-tx-left-x">X: 0%</span>
+                            </div>
+                        </div>
+
+                        <!-- Center 16 Channels Live Visualizer -->
+                        <div class="tx-center-monitor">
+                            <div class="tx-monitor-header">
+                                <span>BARRAMENTO 16 CANAIS (µs)</span>
+                                <span id="tx-protocol-badge" class="tx-badge">CRSF</span>
+                            </div>
+                            <div class="tx-16ch-grid" id="tx-channels-bars-container">
+                                <!-- 16 bars generated by JS -->
+                            </div>
+                        </div>
+
+                        <!-- Right Stick -->
+                        <div class="joystick-zone tx-joy-zone">
+                            <div id="joy-tx-right" class="joystick-base"></div>
+                            <span class="joystick-label" id="lbl-tx-right-role">Direita: Elevator / Aileron</span>
+                            <div class="tx-joy-telemetry">
+                                <span id="telemetry-tx-right-y">Y: 0%</span>
+                                <span id="telemetry-tx-right-x">X: 0%</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
         </main>
 
         <!-- MODAL: CONEXÃO -->
@@ -210,6 +530,7 @@
                         <button class="tab-btn active" data-tab="tab-wifi">Wi-Fi (UDP / TCP)</button>
                         <button class="tab-btn" data-tab="tab-bt-classic">Bluetooth Classic</button>
                         <button class="tab-btn" data-tab="tab-bt-ble">Bluetooth LE (BLE)</button>
+                        <button class="tab-btn" data-tab="tab-usb-otg">🔌 Rádio USB / OTG</button>
                     </div>
 
                     <!-- TAB: WIFI -->
@@ -269,6 +590,44 @@
                         </div>
                     </div>
 
+                    <!-- TAB: USB OTG SERIAL -->
+                    <div id="tab-usb-otg" class="tab-content" style="display: none;">
+                        <div class="form-group">
+                            <div style="display:flex; justify-content:space-between; align-items:center;">
+                                <label>Adaptador de Rádio / Controladora (Cabo USB-OTG):</label>
+                                <button id="btn-scan-usb" class="icon-btn" style="padding:2px 8px; font-size:0.75rem;">Escanear USB</button>
+                            </div>
+                            <select id="usb-device-select" class="form-control" style="margin-top:6px;">
+                                <option value="-1">Nenhum rádio detectado. Plugue o cabo OTG e clique em Escanear.</option>
+                            </select>
+                            <small style="color:var(--text-secondary); display:block; margin-top:4px;">
+                                Suporta Rádios de Telemetria SiK (3DR/Holybro 433/915MHz), Módulos ExpressLRS USB, Crossfire USB e portas VCP de controladoras (Pixhawk, SpeedyBee, Matek, STM32, Arduino, ESP32).
+                            </small>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group" style="flex:1;">
+                                <label>Baud Rate (Velocidade Serial):</label>
+                                <select id="usb-baud-rate" class="form-control">
+                                    <option value="57600">57600 (Padrão SiK Radio / ArduPilot / 3DR)</option>
+                                    <option value="115200" selected>115200 (ExpressLRS / INAV / Betaflight / IBUS)</option>
+                                    <option value="420000">420000 (CRSF High-Speed / ELRS UART)</option>
+                                    <option value="9600">9600 (Receptores lentos / GPS)</option>
+                                    <option value="19200">19200</option>
+                                    <option value="38400">38400</option>
+                                    <option value="230400">230400</option>
+                                    <option value="460800">460800</option>
+                                    <option value="921600">921600 (Ultra High-Speed)</option>
+                                </select>
+                            </div>
+                            <div class="form-group" style="flex:1;">
+                                <label>Status da Porta OTG:</label>
+                                <div id="usb-device-status-info" style="font-size:0.8rem; color:var(--accent-cyan); padding:8px; background:var(--bg-surface-elevated); border-radius:6px; border:1px solid var(--border-color); height:38px; display:flex; align-items:center;">
+                                    Pronto para conexão OTG
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                 </div>
                 <div class="modal-footer">
                     <button id="btn-disconnect-all" class="btn-secondary" style="color:var(--accent-red); margin-right:auto;">Desconectar</button>
@@ -287,24 +646,52 @@
                 </div>
                 <div class="modal-body">
                     <div class="form-group">
-                        <label>Formato da Mensagem:</label>
+                        <label>Formato da Mensagem / Protocolo:</label>
                         <select id="proto-format" class="form-control">
-                            <option value="DELIMITED" selected>Delimitado por vírgula (ex: JOY,10,85\n)</option>
-                            <option value="RAW">Texto Simples / Letras (ex: F, B, L, R, S)</option>
-                            <option value="JSON">JSON (ex: {"cmd":"JOY","x":10,"y":85})</option>
-                            <option value="HEX">Hexadecimal / Binário (Bytes brutos)</option>
-                            <option value="TEMPLATE">Template Customizado</option>
+                            <optgroup label="Protocolos Gerais & Robótica">
+                                <option value="DELIMITED" selected>Delimitado por vírgula (ex: JOY,10,85\n)</option>
+                                <option value="RAW">Texto Simples / Letras (ex: F, B, L, R, S)</option>
+                                <option value="JSON">JSON (ex: {"cmd":"JOY","x":10,"y":85})</option>
+                                <option value="HEX">Hexadecimal / Binário Customizado</option>
+                                <option value="TEMPLATE">Template Customizado</option>
+                            </optgroup>
+                            <optgroup label="Protocolos de Aeromodelismo (Drones, Asas, Controladoras)">
+                                <option value="CRSF">CRSF (ExpressLRS / TBS Crossfire 16CH 11-bit)</option>
+                                <option value="SBUS">SBUS (Futaba / FrSky / RadioMaster 16CH)</option>
+                                <option value="IBUS">IBUS (FlySky FS-iA6B / FS-iA10B 14CH)</option>
+                                <option value="MAVLINK">MAVLink v1 (ArduPilot / Pixhawk RC Override #70)</option>
+                                <option value="MSP">MSP (MultiWii / INAV / Betaflight #200)</option>
+                            </optgroup>
                         </select>
                     </div>
 
                     <div id="group-template" class="form-group" style="display:none;">
-                        <label>Template (Tags: {cmd}, {x}, {y}, {val}, {left}, {right}):</label>
+                        <label>Template (Tags: {cmd}, {x}, {y}, {val}, {left}, {right}, {ch1}..{ch6}):</label>
                         <input type="text" id="proto-template" class="form-control" value="RC:{cmd}:{x}:{y}\n">
+                    </div>
+
+                    <!-- OPÇÕES DE AEROMODELISMO -->
+                    <div id="group-aero-config" class="form-row">
+                        <div class="form-group" style="flex:1;">
+                            <label>Ordem dos Canais (Channel Map):</label>
+                            <select id="proto-channel-map" class="form-control">
+                                <option value="AETR" selected>AETR (Aileron, Elevator, Throttle, Rudder - ELRS/Crossfire/INAV)</option>
+                                <option value="TAER">TAER (Throttle, Aileron, Elevator, Rudder - Spektrum)</option>
+                                <option value="RETA">RETA (Rudder, Elevator, Throttle, Aileron)</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="flex:1;">
+                            <label>Modo dos Sticks (Sticks Mode):</label>
+                            <select id="proto-stick-mode" class="form-control">
+                                <option value="2" selected>Modo 2 (Esq: Throttle/Yaw | Dir: Pitch/Roll)</option>
+                                <option value="1">Modo 1 (Esq: Pitch/Yaw | Dir: Throttle/Roll)</option>
+                            </select>
+                        </div>
                     </div>
 
                     <div class="form-row">
                         <div class="form-group" style="flex:1;">
-                            <label>Final de Linha:</label>
+                            <label>Final de Linha (Apenas Texto/RAW):</label>
                             <select id="proto-ending" class="form-control">
                                 <option value="\n" selected>\n (Nova Linha)</option>
                                 <option value="\r\n">\r\n (CRLF)</option>
@@ -312,11 +699,12 @@
                             </select>
                         </div>
                         <div class="form-group" style="flex:1;">
-                            <label>Escala de Valores:</label>
+                            <label>Escala de Valores (Modo Geral):</label>
                             <select id="proto-range" class="form-control">
                                 <option value="PERCENT" selected>-100 a +100 (%)</option>
                                 <option value="BYTE">0 a 255 (Centro 128)</option>
                                 <option value="PWM">-255 a +255 (PWM)</option>
+                                <option value="US">1000 a 2000 (Microssegundos µs)</option>
                             </select>
                         </div>
                     </div>
