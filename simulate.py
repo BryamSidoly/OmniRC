@@ -7,6 +7,7 @@ import os
 import urllib.parse
 import json
 import datetime
+import protocol_decoder
 
 PORT = 8000
 UDP_LISTEN_PORT = 8888
@@ -77,6 +78,22 @@ class SimulatorHandler(http.server.SimpleHTTPRequestHandler):
                             if (window.onNativeStatus) window.onNativeStatus("CONNECTED", `BT ${type} Conectado: ${addr}`);
                         }, 300);
                     },
+                    connectUsbSerial: function(baudRate) {
+                        console.log(`[Android Mock] Adaptador de Rádio USB/OTG Conectado em ${baudRate} baud (RadioMaster / ELRS Dongle)`);
+                        setTimeout(() => {
+                            if (window.onNativeStatus) window.onNativeStatus("CONNECTED", `USB Serial Conectado: ${baudRate} baud`);
+                        }, 200);
+                    },
+                    disconnectUsbSerial: function() {
+                        console.log("[Android Mock] Rádio USB Serial desconectado");
+                        if (window.onNativeStatus) window.onNativeStatus("DISCONNECTED", "USB Serial Desconectado");
+                    },
+                    listUsbDevices: function() {
+                        return JSON.stringify([
+                            {name: "RadioMaster TX16S (VCP)", vendorId: 1155, productId: 22336},
+                            {name: "ExpressLRS USB Dongle (CP2102)", vendorId: 4292, productId: 60000}
+                        ]);
+                    },
                     disconnect: function() {
                         console.log("[Android Mock] Desconectado");
                         if (window.onNativeStatus) window.onNativeStatus("DISCONNECTED", "Desconectado");
@@ -117,6 +134,37 @@ class SimulatorHandler(http.server.SimpleHTTPRequestHandler):
                     },
                     loadConfig: function(key, def) {
                         return localStorage.getItem('omnirc_' + key) || def;
+                    },
+                    startSensors: function(rateDelayMs) {
+                        console.log(`[Android Mock] Sensores do celular ativados (taxa: ${rateDelayMs}ms)`);
+                        if (window._sensorSimInterval) clearInterval(window._sensorSimInterval);
+                        let t = 0;
+                        window._sensorSimInterval = setInterval(() => {
+                            t += 0.05;
+                            // Gera pequena oscilação suave simulando smartphone sendo segurado na mão em paisagem
+                            const pitch = Math.sin(t * 0.8) * 8.0;
+                            const roll = Math.cos(t * 0.6) * 12.0;
+                            const yaw = (t * 5.0) % 360;
+                            const ax = Math.sin(roll * Math.PI / 180) * 9.8;
+                            const ay = -Math.sin(pitch * Math.PI / 180) * 9.8;
+                            const az = 9.8;
+                            if (window.onNativeSensorData) {
+                                window.onNativeSensorData(pitch, roll, yaw, ax, ay, az);
+                            }
+                        }, rateDelayMs || 50);
+                    },
+                    stopSensors: function() {
+                        console.log("[Android Mock] Sensores do celular desativados");
+                        if (window._sensorSimInterval) {
+                            clearInterval(window._sensorSimInterval);
+                            window._sensorSimInterval = null;
+                        }
+                    },
+                    sendHttpRequest: function(url, method, payload) {
+                        console.log(`[Android Mock] HTTP Request -> ${method} ${url}`, payload);
+                    },
+                    requestPermissions: function() {
+                        console.log("[Android Mock] Permissões concedidas");
                     }
                 };
             }
@@ -147,24 +195,23 @@ def start_udp_listener():
             data, addr = sock.recvfrom(2048)
             packet_count += 1
             now = datetime.datetime.now().strftime("%H:%M:%S.%f")[:-3]
-            try:
-                decoded = data.decode("utf-8").strip()
-            except Exception:
-                decoded = data.hex(" ")
-            print(f"[{now}] #{packet_count:<4} Pacote recebido: {decoded}")
+            decoded = protocol_decoder.decode_packet(data)
+            proto = f"[{decoded['protocol']}]"
+            print(f"[{now}] #{packet_count:<4} {proto:<15} -> {decoded['summary']}")
         except Exception:
             break
 
 def run():
-    print("=" * 65)
+    print("=" * 72)
     print("  🚀 OmniRC - Simulador Interativo & Receptor para Windows")
-    print("=" * 65)
+    print("  Suporta: CRSF (ELRS), SBUS, IBUS, MAVLink, MSP, AERO, DRIVE, CUSTOM")
+    print("=" * 72)
     print(f"1. Servidor Web iniciado em: http://localhost:{PORT}")
     print(f"2. Receptor UDP ouvindo em: 0.0.0.0:{UDP_LISTEN_PORT}")
     print("3. Abrindo navegador automaticamente...")
-    print("=" * 65)
-    print("Dica: Movimente os analógicos e aperte os botões no navegador.")
-    print("Os pacotes UDP serão exibidos aqui no terminal em tempo real!")
+    print("=" * 72)
+    print("Dica: Movimente os joysticks e aperte os botões no navegador.")
+    print("Os pacotes e canais decodificados serão exibidos aqui no terminal em tempo real!")
     print("Pressione Ctrl+C para encerrar.\n")
 
     # Iniciar receptor UDP em thread separada

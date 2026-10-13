@@ -9,6 +9,8 @@ import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
+import android.view.Surface;
+import android.view.WindowManager;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebView;
 
@@ -41,15 +43,56 @@ public class WebAppInterface {
         @Override
         public void onSensorChanged(SensorEvent event) {
             long now = System.currentTimeMillis();
+            int rotation = Surface.ROTATION_0;
+            try {
+                if (activity != null && activity.getWindowManager() != null && activity.getWindowManager().getDefaultDisplay() != null) {
+                    rotation = activity.getWindowManager().getDefaultDisplay().getRotation();
+                }
+            } catch (Exception ignored) {}
+
             if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
-                lastAx = event.values[0];
-                lastAy = event.values[1];
-                lastAz = event.values[2];
-                double rollRad = Math.atan2(lastAx, Math.sqrt(lastAy * lastAy + lastAz * lastAz));
-                double pitchRad = Math.atan2(-lastAy, lastAz);
+                float rawX = event.values[0];
+                float rawY = event.values[1];
+                float rawZ = event.values[2];
+
+                float screenAx;
+                float screenAy;
+                float screenAz = rawZ;
+
+                switch (rotation) {
+                    case Surface.ROTATION_90:
+                        // Standard landscape (top/front-camera on the left)
+                        screenAx = -rawY;
+                        screenAy = rawX;
+                        break;
+                    case Surface.ROTATION_270:
+                        // Reverse landscape (top/front-camera on the right)
+                        screenAx = rawY;
+                        screenAy = -rawX;
+                        break;
+                    case Surface.ROTATION_180:
+                        // Reverse portrait
+                        screenAx = -rawX;
+                        screenAy = -rawY;
+                        break;
+                    case Surface.ROTATION_0:
+                    default:
+                        // Natural portrait
+                        screenAx = rawX;
+                        screenAy = rawY;
+                        break;
+                }
+
+                lastAx = screenAx;
+                lastAy = screenAy;
+                lastAz = screenAz;
+
+                double rollRad = Math.atan2(screenAx, Math.sqrt(screenAy * screenAy + screenAz * screenAz));
+                double pitchRad = Math.atan2(-screenAy, screenAz);
                 lastRoll = (float) Math.toDegrees(rollRad);
                 lastPitch = (float) Math.toDegrees(pitchRad);
             } else if (event.sensor.getType() == Sensor.TYPE_GYROSCOPE) {
+                // event.values[2] is rotation around the Z axis (perpendicular to the screen).
                 lastYaw += event.values[2] * (sensorDispatchIntervalMs / 1000.0f);
             }
 

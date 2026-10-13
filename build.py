@@ -107,18 +107,31 @@ def run():
     with zipfile.ZipFile(unaligned_apk, "a") as z:
         z.write(dex_path, "classes.dex")
 
-    # 7. ZipAlign & Sign with Uber-APK-Signer
-    print("\n[6/6] ZipAligning and Signing APK (v1, v2, v3 schemes)...")
-    cmd_sign = [
-        "java", "-jar", UBER_SIGNER,
-        "--apks", unaligned_apk,
-        "-o", DIST_DIR,
-        "--allowResign"
-    ]
+    # 7. ZipAlign & Sign with Uber-APK-Signer using Release Keystore
+    print("\n[6/6] ZipAligning and Signing APK (v1, v2, v3 schemes with Release Key)...")
+    release_ks = os.path.join(BASE_DIR, "omnirc-release.jks")
+    if os.path.exists(release_ks):
+        cmd_sign = [
+            "java", "-jar", UBER_SIGNER,
+            "--apks", unaligned_apk,
+            "-o", DIST_DIR,
+            "--ks", release_ks,
+            "--ksAlias", "omnirc",
+            "--ksPass", "omnirc123",
+            "--ksKeyPass", "omnirc123",
+            "--allowResign"
+        ]
+    else:
+        cmd_sign = [
+            "java", "-jar", UBER_SIGNER,
+            "--apks", unaligned_apk,
+            "-o", DIST_DIR,
+            "--allowResign"
+        ]
     subprocess.run(cmd_sign, check=True)
 
     # 8. Copy signed APK to final location
-    signed_candidates = [f for f in os.listdir(DIST_DIR) if f.endswith("-aligned-debugSigned.apk")]
+    signed_candidates = [f for f in os.listdir(DIST_DIR) if f.endswith(".apk") and ("-aligned-signed" in f or "-aligned-debugSigned" in f)]
     if not signed_candidates:
         raise RuntimeError("No signed APK found in dist folder!")
 

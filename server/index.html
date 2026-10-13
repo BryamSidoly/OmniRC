@@ -77,7 +77,7 @@
         .top-meta {
             display: flex;
             align-items: center;
-            gap: 16px;
+            gap: 12px;
             font-size: 0.85rem;
         }
 
@@ -129,54 +129,60 @@
             overflow: hidden;
         }
 
-        /* LEFT: SIMULATOR CANVAS VIEWPORT */
+        /* LEFT: VIEWPORT SECTION */
         .viewport-section {
-            flex: 1.6;
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: 12px;
+            flex: 1.4;
             display: flex;
             flex-direction: column;
+            background-color: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
             overflow: hidden;
             position: relative;
         }
 
         .viewport-header {
             padding: 10px 16px;
+            background-color: var(--bg-card-elevated);
             border-bottom: 1px solid var(--border);
             display: flex;
             justify-content: space-between;
             align-items: center;
-            background: var(--bg-card-elevated);
         }
 
         .view-tabs {
             display: flex;
             gap: 6px;
+            flex-wrap: wrap;
         }
 
         .tab-btn {
-            background: var(--bg-card);
+            background: var(--bg-dark);
             border: 1px solid var(--border);
             color: var(--text-muted);
-            padding: 6px 14px;
-            border-radius: 8px;
+            padding: 6px 12px;
+            border-radius: 6px;
             cursor: pointer;
-            font-size: 0.85rem;
+            font-size: 0.82rem;
             font-weight: 600;
             transition: all 0.2s;
         }
 
+        .tab-btn:hover {
+            color: #FFF;
+            border-color: var(--accent-cyan);
+        }
+
         .tab-btn.active {
-            background: var(--accent-cyan);
-            color: #000;
+            background: rgba(0, 229, 255, 0.15);
+            color: var(--accent-cyan);
             border-color: var(--accent-cyan);
         }
 
         .canvas-container {
             flex: 1;
             position: relative;
-            background: #0D1117;
+            background: #080B10;
             overflow: hidden;
         }
 
@@ -186,21 +192,22 @@
             display: block;
         }
 
-        /* OVERLAYS ON CANVAS */
+        /* OVERLAYS NO CANVAS */
         .hud-overlay {
             position: absolute;
             top: 14px;
-            left: 14px;
-            background: rgba(20, 26, 36, 0.85);
-            backdrop-filter: blur(8px);
+            right: 14px;
+            background: rgba(11, 14, 20, 0.85);
             border: 1px solid var(--border);
-            border-radius: 10px;
+            border-radius: 8px;
             padding: 10px 14px;
             display: flex;
             flex-direction: column;
             gap: 6px;
             font-size: 0.8rem;
             pointer-events: none;
+            backdrop-filter: blur(4px);
+            z-index: 5;
         }
 
         .hud-row {
@@ -210,43 +217,56 @@
         }
 
         .hud-val {
-            font-family: monospace;
             font-weight: bold;
             color: var(--accent-cyan);
+            font-family: monospace;
         }
 
         .btn-horn-indicator {
             position: absolute;
-            top: 14px;
-            right: 14px;
-            background: rgba(255, 184, 0, 0.2);
-            border: 1px solid var(--accent-amber);
-            color: var(--accent-amber);
-            padding: 8px 14px;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--accent-red);
+            color: #FFF;
+            padding: 8px 24px;
             border-radius: 20px;
             font-weight: bold;
+            font-size: 0.9rem;
+            box-shadow: 0 0 15px rgba(255, 51, 102, 0.6);
             display: none;
+            z-index: 5;
+        }
+
+        /* CAMERA STREAM CONTAINER */
+        .camera-stream-container {
+            position: absolute;
+            inset: 0;
+            background: #000;
+            display: none;
+            flex-direction: column;
             align-items: center;
-            gap: 8px;
-            animation: pulseHorn 0.3s infinite alternate;
+            justify-content: center;
+            z-index: 4;
         }
 
-        @keyframes pulseHorn {
-            from { transform: scale(1); }
-            to { transform: scale(1.1); }
+        .camera-stream-container img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
         }
 
-        /* RIGHT: TELEMETRY & COMMAND LOG */
+        /* RIGHT: TELEMETRY & LOG SECTION */
         .telemetry-section {
-            flex: 1;
+            flex: 1.1;
             display: flex;
             flex-direction: column;
-            gap: 12px;
+            gap: 14px;
             overflow: hidden;
         }
 
         .card {
-            background: var(--bg-card);
+            background-color: var(--bg-card);
             border: 1px solid var(--border);
             border-radius: 12px;
             display: flex;
@@ -256,10 +276,11 @@
 
         .card-header {
             padding: 10px 14px;
+            background-color: var(--bg-card-elevated);
             border-bottom: 1px solid var(--border);
-            font-size: 0.9rem;
-            font-weight: 600;
-            background: var(--bg-card-elevated);
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: var(--accent-cyan);
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -269,71 +290,139 @@
         .gauges-grid {
             padding: 12px;
             display: grid;
-            grid-template-columns: repeat(2, 1fr);
+            grid-template-columns: 1fr 1fr;
             gap: 10px;
         }
 
         .gauge-item {
-            background: var(--bg-card-elevated);
+            background: var(--bg-dark);
             border: 1px solid var(--border);
             border-radius: 8px;
-            padding: 10px;
+            padding: 8px 12px;
             display: flex;
             flex-direction: column;
             gap: 4px;
         }
 
         .gauge-label {
-            font-size: 0.75rem;
+            font-size: 0.72rem;
             color: var(--text-muted);
             text-transform: uppercase;
         }
 
         .gauge-value {
-            font-size: 1.3rem;
+            font-size: 1.15rem;
             font-weight: bold;
+            color: #FFF;
             font-family: monospace;
-            color: var(--accent-cyan);
         }
 
         .gauge-bar-bg {
-            width: 100%;
             height: 6px;
-            background: rgba(255, 255, 255, 0.1);
+            background: var(--bg-card-elevated);
             border-radius: 3px;
             overflow: hidden;
-            margin-top: 4px;
         }
 
         .gauge-bar-fill {
             height: 100%;
-            width: 0%;
             background: var(--accent-cyan);
-            transition: width 0.05s ease-out;
+            width: 0%;
+            transition: width 0.1s linear;
+        }
+
+        /* 16 CANAIS DE RADIO AERO */
+        .channels-grid {
+            padding: 10px;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 6px;
+            max-height: 165px;
+            overflow-y: auto;
+        }
+
+        .channel-chip {
+            background: var(--bg-dark);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 5px 8px;
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+        }
+
+        .channel-name {
+            font-size: 0.68rem;
+            color: var(--text-muted);
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .channel-val {
+            font-size: 0.82rem;
+            font-weight: bold;
+            color: var(--accent-cyan);
+            font-family: monospace;
         }
 
         /* TERMINAL LOG */
         .log-container {
             flex: 1;
             padding: 10px;
-            background: #07090D;
+            background-color: #06090E;
             overflow-y: auto;
             font-family: "Courier New", Courier, monospace;
-            font-size: 0.8rem;
+            font-size: 0.78rem;
             display: flex;
             flex-direction: column;
             gap: 4px;
         }
 
         .log-line {
-            line-height: 1.4;
+            line-height: 1.35;
             word-break: break-all;
         }
 
-        .log-line.cmd { color: var(--accent-cyan); }
-        .log-line.stop { color: var(--accent-red); font-weight: bold; }
+        .log-line.cmd { color: #A5D6FF; }
+        .log-line.aero { color: var(--accent-green); font-weight: bold; }
         .log-line.event { color: var(--accent-amber); }
-        .log-line.connect { color: var(--accent-green); }
+        .log-line.stop { color: var(--accent-red); font-weight: bold; }
+        .log-line.sensor { color: #D2A8FF; }
+        .log-line.custom { color: #FF7B72; }
+
+        /* CUSTOM LAYOUT GRID */
+        .custom-elements-container {
+            padding: 10px;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+            gap: 8px;
+            max-height: 180px;
+            overflow-y: auto;
+        }
+
+        .custom-chip {
+            background: var(--bg-dark);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 8px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .custom-chip strong {
+            font-size: 0.75rem;
+            color: var(--accent-amber);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .custom-chip span {
+            font-size: 0.9rem;
+            font-family: monospace;
+            color: #FFF;
+        }
     </style>
 </head>
 <body>
@@ -341,30 +430,32 @@
     <!-- TOP HEADER -->
     <header>
         <div class="brand-title">
-            <span>🚗 OmniRC Device Simulator</span>
+            <span>🚀 OmniRC Multi-Protocol Simulator</span>
             <div id="status-pill" class="status-pill">
                 <span>●</span>
-                <span id="status-text">Aguardando Conexão do Celular...</span>
+                <span id="status-text">Aguardando Conexão...</span>
             </div>
         </div>
 
         <div class="top-meta">
+            <div class="meta-tag">Protocolo: <strong id="val-proto-detected">AGUARDANDO...</strong></div>
+            <div class="meta-tag">Status Voo: <span id="val-arm-badge" style="padding:2px 8px; border-radius:4px; font-weight:bold; background:rgba(255,51,102,0.2); color:var(--accent-red);">DISARMED</span></div>
+            <div class="meta-tag">Modo: <strong id="val-flight-mode">--</strong></div>
             <div class="meta-tag">Pacotes: <strong id="val-pkt-count">0</strong></div>
             <div class="meta-tag">Taxa: <strong id="val-pkt-hz">0 Hz</strong></div>
-            <div class="meta-tag">Origem: <strong id="val-client-ip">-</strong></div>
+            <div class="meta-tag">IP: <strong id="val-client-ip">-</strong></div>
         </div>
     </header>
 
     <!-- BANNER DE AJUDA PARA CONEXÃO -->
     <div class="ip-banner">
-        <span>📲 <strong>Como conectar seu celular:</strong> No aplicativo OmniRC, clique em <strong>📡 Conexão</strong> e coloque:</span>
+        <span>📲 <strong>Conecte seu celular:</strong> No OmniRC, vá em <strong>📡 Conexão</strong> e selecione Wi-Fi com:</span>
         <div class="ip-list">
             <span>IP do PC:</span>
             <div id="ip-badges">
-                <!-- IP badges dynamically loaded -->
                 <span class="ip-badge">Carregando IPs...</span>
             </div>
-            <span>Porta: <span class="ip-badge">8888</span> (UDP ou TCP)</span>
+            <span>Porta: <span class="ip-badge">8888</span> (UDP / TCP / CRSF / SBUS / IBUS / MAVLink / MSP)</span>
         </div>
     </div>
 
@@ -378,21 +469,30 @@
                     <button class="tab-btn active" data-view="car">🏎️ Carro RC / Rover</button>
                     <button class="tab-btn" data-view="tank">🛡️ Tanque / Esteiras</button>
                     <button class="tab-btn" data-view="arm">🦾 Braço Robótico</button>
+                    <button class="tab-btn" data-view="aero">✈️ Aeromodelo / Drone / Asa Fixa</button>
+                    <button class="tab-btn" data-view="custom">🎛️ Layout Personalizado</button>
+                    <button class="tab-btn" data-view="camera">📷 Câmera IP / FPV HUD</button>
                 </div>
-                <div style="font-size: 0.8rem; color: var(--text-muted);">
-                    Simulação com Física em Tempo Real (60 FPS)
+                <div style="font-size: 0.78rem; color: var(--text-muted);">
+                    Simulação Interativa em Tempo Real (60 FPS)
                 </div>
             </div>
 
             <div class="canvas-container">
                 <canvas id="simCanvas"></canvas>
 
+                <!-- Camera Stream View (toggleable) -->
+                <div id="cameraViewContainer" class="camera-stream-container">
+                    <img id="cameraStreamImg" src="/stream" alt="Live FPV Stream" onerror="this.style.display='none'" onload="this.style.display='block'">
+                </div>
+
                 <!-- HUD Telemetry on Canvas -->
-                <div class="hud-overlay">
+                <div id="canvasHud" class="hud-overlay">
                     <div class="hud-row"><span>Acelerador:</span><span id="hud-throttle" class="hud-val">0%</span></div>
                     <div class="hud-row"><span>Direção:</span><span id="hud-steering" class="hud-val">0%</span></div>
                     <div class="hud-row"><span>Velocidade:</span><span id="hud-speed" class="hud-val">0 km/h</span></div>
                     <div class="hud-row"><span>Faróis:</span><span id="hud-lights" class="hud-val" style="color:var(--text-muted)">DESLIGADO</span></div>
+                    <div class="hud-row"><span>Gimbal:</span><span id="hud-gimbal" class="hud-val">X:90° Y:90°</span></div>
                 </div>
 
                 <!-- Buzina Banner -->
@@ -405,43 +505,66 @@
         <!-- RIGHT: GAUGES & TERMINAL LOG -->
         <section class="telemetry-section">
             
-            <!-- GAUGES CARD -->
+            <!-- AERO / RC CHANNELS CARD -->
             <div class="card" style="flex: 0 0 auto;">
                 <div class="card-header">
-                    <span>⚡ Telemetria dos Motores</span>
-                    <span id="val-gear" style="color:var(--accent-green); font-size:0.8rem;">Marcha 1</span>
+                    <span>📡 Rádio RC: 16 Canais (µs)</span>
+                    <span id="val-radio-protocol" style="color:var(--accent-cyan); font-size:0.75rem;">AETR / 1000-2000µs</span>
+                </div>
+                <div id="channelsGrid" class="channels-grid">
+                    <!-- 16 channels dynamically populated -->
+                </div>
+            </div>
+
+            <!-- HARDWARE TELEMETRY & GAUGES -->
+            <div class="card" style="flex: 0 0 auto;">
+                <div class="card-header">
+                    <span>⚡ Motores & Sensores do Celular</span>
+                    <span id="val-gear" style="color:var(--accent-green); font-size:0.75rem;">Marcha 1</span>
                 </div>
                 <div class="gauges-grid">
                     <div class="gauge-item">
-                        <span class="gauge-label">Motor Esquerdo (L)</span>
+                        <span class="gauge-label">Motor Esquerdo (L) / Roll</span>
                         <span id="val-motor-l" class="gauge-value">0%</span>
                         <div class="gauge-bar-bg"><div id="bar-motor-l" class="gauge-bar-fill"></div></div>
                     </div>
                     <div class="gauge-item">
-                        <span class="gauge-label">Motor Direito (R)</span>
+                        <span class="gauge-label">Motor Direito (R) / Pitch</span>
                         <span id="val-motor-r" class="gauge-value">0%</span>
                         <div class="gauge-bar-bg"><div id="bar-motor-r" class="gauge-bar-fill"></div></div>
                     </div>
                     <div class="gauge-item">
-                        <span class="gauge-label">Ângulo do Volante</span>
-                        <span id="val-steer-angle" class="gauge-value">0°</span>
-                        <div class="gauge-bar-bg"><div id="bar-steer" class="gauge-bar-fill"></div></div>
+                        <span class="gauge-label">Giroscópio Celular (Roll/Pitch)</span>
+                        <span id="val-gyro-orient" class="gauge-value">0° / 0°</span>
+                        <div class="gauge-bar-bg"><div id="bar-gyro" class="gauge-bar-fill"></div></div>
                     </div>
                     <div class="gauge-item">
-                        <span class="gauge-label">Status do Sistema</span>
-                        <span id="val-sys-status" class="gauge-value" style="font-size:1rem; color:var(--accent-green);">PRONTO</span>
+                        <span class="gauge-label">Status Geral</span>
+                        <span id="val-sys-status" class="gauge-value" style="font-size:0.95rem; color:var(--accent-green);">PRONTO</span>
                     </div>
+                </div>
+            </div>
+
+            <!-- CUSTOM LAYOUT ELEMENTS RECEIVED -->
+            <div id="cardCustomElements" class="card" style="flex: 0 0 auto; display: none;">
+                <div class="card-header">
+                    <span>🎛️ Controles do Layout Personalizado</span>
+                    <span id="val-custom-count" style="font-size:0.75rem; color:var(--accent-amber);">0 elementos</span>
+                </div>
+                <div id="customElementsGrid" class="custom-elements-container">
+                    <!-- Dynamic custom elements -->
                 </div>
             </div>
 
             <!-- RAW COMMANDS STREAM CARD -->
             <div class="card" style="flex: 1;">
                 <div class="card-header">
-                    <span>📟 Fluxo de Comandos Recebidos</span>
+                    <span>📟 Fluxo de Pacotes & Decodificador</span>
                     <button id="btn-clear-log" style="background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:0.8rem;">Limpar</button>
                 </div>
                 <div id="log-screen" class="log-container">
-                    <div class="log-line event">[Sistema] Servidor inicializado. Aguardando pacotes do celular na porta 8888...</div>
+                    <div class="log-line event">[Sistema] Servidor inicializado. Ouvindo UDP/TCP na porta 8888...</div>
+                    <div class="log-line event">[Protocolos] CRSF, SBUS, IBUS, MAVLink, MSP, AERO, DRIVE, TANK, CUSTOM ativos.</div>
                 </div>
             </div>
 
@@ -452,7 +575,7 @@
     <!-- SIMULATION SCRIPT -->
     <script>
         // State variables
-        let activeView = 'car'; // 'car', 'tank', 'arm'
+        let activeView = 'car'; // 'car', 'tank', 'arm', 'aero', 'custom', 'camera'
         let deviceState = {
             throttle: 0,
             steering: 0,
@@ -463,11 +586,26 @@
             turbo: false,
             gear: 1,
             emergencyStop: false,
-            // Robot arm joints
-            s1: 90, // Base
-            s2: 90, // Shoulder
-            s3: 90, // Elbow
-            s4: 30  // Gripper
+            s1: 90,
+            s2: 90,
+            s3: 90,
+            s4: 30,
+            aeroRoll: 0,
+            aeroPitch: 0,
+            aeroThrottle: 0,
+            aeroYaw: 0,
+            armed: false,
+            flightMode: "ANGLE / STAB",
+            flaps: 0,
+            gear: false,
+            channels: [1500, 1500, 1000, 1500, 1000, 1500, 1000, 1000, 1500, 1500, 1500, 1500, 1500, 1500, 1500, 1500],
+            gimbalX: 90,
+            gimbalY: 90,
+            sensorPitch: 0,
+            sensorRoll: 0,
+            sensorYaw: 0,
+            customElements: {},
+            protocolDetected: "AGUARDANDO..."
         };
 
         let lastPacketTime = 0;
@@ -475,28 +613,10 @@
         let lastHzCheck = Date.now();
         let hzCounter = 0;
 
-        // 2D Physics Car Model
-        const car = {
-            x: 0,
-            y: 0,
-            angle: -Math.PI / 2, // Facing UP
-            speed: 0,
-            maxSpeed: 8,
-            friction: 0.95,
-            turnSpeed: 0.05,
-            width: 44,
-            length: 80,
-            frontWheelAngle: 0
-        };
-
-        // Tank Model
-        const tank = {
-            x: 0,
-            y: 0,
-            angle: -Math.PI / 2,
-            leftTrackSpeed: 0,
-            rightTrackSpeed: 0
-        };
+        // 2D Physics Models
+        const car = { x: 0, y: 0, angle: -Math.PI / 2, speed: 0, maxSpeed: 8, friction: 0.95, turnSpeed: 0.05, width: 44, length: 80 };
+        const tank = { x: 0, y: 0, angle: -Math.PI / 2, leftTrackSpeed: 0, rightTrackSpeed: 0 };
+        const drone = { x: 0, y: 0, z: 0, angle: -Math.PI / 2, roll: 0, pitch: 0, yaw: 0, propAngle: 0 };
 
         // Canvas Setup
         const canvas = document.getElementById('simCanvas');
@@ -510,199 +630,124 @@
                 car.y = canvas.height / 2;
                 tank.x = canvas.width / 2;
                 tank.y = canvas.height / 2;
+                drone.x = canvas.width / 2;
+                drone.y = canvas.height / 2;
             }
         }
         window.addEventListener('resize', resizeCanvas);
         resizeCanvas();
 
-        // Audio Synthesizer (Engine & Horn)
-        let audioCtx = null;
-        let engineOsc = null;
-        let engineGain = null;
-
-        function initAudio() {
-            if (audioCtx) return;
-            try {
-                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                engineOsc = audioCtx.createOscillator();
-                engineGain = audioCtx.createGain();
-                engineOsc.type = 'sawtooth';
-                engineOsc.frequency.setValueAtTime(60, audioCtx.currentTime);
-                engineGain.gain.setValueAtTime(0.015, audioCtx.currentTime);
-                engineOsc.connect(engineGain);
-                engineGain.connect(audioCtx.destination);
-                engineOsc.start();
-            } catch (e) {}
-        }
-        window.addEventListener('click', initAudio, { once: true });
-
-        function playHornTone(active) {
-            if (!audioCtx) initAudio();
-            if (!audioCtx) return;
-            if (active && !window._hornPlaying) {
-                window._hornPlaying = true;
-                const osc = audioCtx.createOscillator();
-                const gain = audioCtx.createGain();
-                osc.type = 'triangle';
-                osc.frequency.setValueAtTime(440, audioCtx.currentTime);
-                gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
-                osc.connect(gain);
-                gain.connect(audioCtx.destination);
-                osc.start();
-                window._activeHorn = { osc, gain };
-            } else if (!active && window._hornPlaying) {
-                window._hornPlaying = false;
-                if (window._activeHorn) {
-                    window._activeHorn.osc.stop();
-                    window._activeHorn = null;
-                }
-            }
+        // Populate 16 Channel Chips
+        const channelsGrid = document.getElementById('channelsGrid');
+        const chNames = ['CH1 (Roll)', 'CH2 (Pitch)', 'CH3 (Thr)', 'CH4 (Yaw)', 'CH5 (ARM)', 'CH6 (Mode)', 'CH7 (Flaps)', 'CH8 (Gear)', 'CH9', 'CH10', 'CH11', 'CH12', 'CH13', 'CH14', 'CH15', 'CH16'];
+        for (let i = 0; i < 16; i++) {
+            const chip = document.createElement('div');
+            chip.className = 'channel-chip';
+            chip.innerHTML = `
+                <div class="channel-name"><span>${chNames[i]}</span><span id="val-ch-us-${i}">1500µs</span></div>
+                <div class="gauge-bar-bg"><div id="bar-ch-${i}" class="gauge-bar-fill" style="width: 50%;"></div></div>
+            `;
+            channelsGrid.appendChild(chip);
         }
 
-        // View Tabs Switcher
-        document.querySelectorAll('.view-tabs .tab-btn').forEach(btn => {
+        // View Tabs Click Handling
+        document.querySelectorAll('.tab-btn').forEach(btn => {
             btn.addEventListener('click', () => {
-                document.querySelectorAll('.view-tabs .tab-btn').forEach(b => b.classList.remove('active'));
+                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
                 activeView = btn.getAttribute('data-view');
+
+                const camContainer = document.getElementById('cameraViewContainer');
+                const canvasHud = document.getElementById('canvasHud');
+                if (activeView === 'camera') {
+                    camContainer.style.display = 'flex';
+                    canvasHud.style.display = 'none';
+                } else {
+                    camContainer.style.display = 'none';
+                    canvasHud.style.display = 'flex';
+                }
             });
         });
 
         // ==========================================
-        // RENDER LOOP (60 FPS CANVAS PHYSICS)
+        // RENDER LOOP (60 FPS)
         // ==========================================
-        function render() {
+        function animate() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
             if (activeView === 'car') {
-                renderCarTrack();
+                renderCarSimulation();
             } else if (activeView === 'tank') {
                 renderTankSimulation();
             } else if (activeView === 'arm') {
                 renderRoboticArm();
+            } else if (activeView === 'aero') {
+                renderAeroSimulation();
+            } else if (activeView === 'custom') {
+                renderCustomLayoutView();
             }
 
-            requestAnimationFrame(render);
+            requestAnimationFrame(animate);
         }
-        requestAnimationFrame(render);
+        requestAnimationFrame(animate);
 
         // 1. CAR SIMULATION
-        function renderCarTrack() {
-            // Draw grid / track
+        function renderCarSimulation() {
             drawGrid();
+            const steer = deviceState.steering / 100;
+            const throt = deviceState.throttle / 100;
+            if (deviceState.turbo) throt *= 1.35;
 
-            // Car Physics Update
-            const targetSpeed = (deviceState.throttle / 100) * (deviceState.turbo ? car.maxSpeed * 1.5 : car.maxSpeed);
-            car.speed += (targetSpeed - car.speed) * 0.1;
+            car.speed += throt * 0.4;
             car.speed *= car.friction;
-
-            const targetWheel = (deviceState.steering / 100) * 0.6; // Max 35 degrees
-            car.frontWheelAngle += (targetWheel - car.frontWheelAngle) * 0.2;
-
-            if (Math.abs(car.speed) > 0.1) {
-                car.angle += car.frontWheelAngle * (car.speed / car.maxSpeed) * 0.05;
-            }
-
+            car.angle += steer * (car.speed / car.maxSpeed) * car.turnSpeed;
             car.x += Math.cos(car.angle) * car.speed;
             car.y += Math.sin(car.angle) * car.speed;
 
-            // Keep inside screen bounds with bounce
-            if (car.x < 50) { car.x = 50; car.speed *= -0.5; }
-            if (car.x > canvas.width - 50) { car.x = canvas.width - 50; car.speed *= -0.5; }
-            if (car.y < 50) { car.y = 50; car.speed *= -0.5; }
-            if (car.y > canvas.height - 50) { car.y = canvas.height - 50; car.speed *= -0.5; }
+            // Wrap edges
+            if (car.x < -40) car.x = canvas.width + 40;
+            if (car.x > canvas.width + 40) car.x = -40;
+            if (car.y < -40) car.y = canvas.height + 40;
+            if (car.y > canvas.height + 40) car.y = -40;
 
-            // Update Engine Sound
-            if (engineOsc && audioCtx) {
-                const pitch = 50 + Math.abs(car.speed) * 18;
-                engineOsc.frequency.setTargetAtTime(pitch, audioCtx.currentTime, 0.05);
-            }
-
-            // Draw Car
             ctx.save();
             ctx.translate(car.x, car.y);
-            ctx.rotate(car.angle + Math.PI / 2); // 0 angle points right, rotate 90 for front-facing
+            ctx.rotate(car.angle + Math.PI / 2);
 
-            // Headlight Cones (if lights on)
+            // Headlights Cone
             if (deviceState.lights) {
-                ctx.save();
-                ctx.fillStyle = 'rgba(255, 255, 200, 0.25)';
+                const grad = ctx.createRadialGradient(0, -car.length / 2, 10, 0, -car.length / 2 - 160, 140);
+                grad.addColorStop(0, 'rgba(255, 235, 120, 0.6)');
+                grad.addColorStop(1, 'rgba(255, 235, 120, 0)');
+                ctx.fillStyle = grad;
                 ctx.beginPath();
-                ctx.moveTo(-16, -car.length / 2);
-                ctx.lineTo(-80, -car.length / 2 - 160);
-                ctx.lineTo(80, -car.length / 2 - 160);
-                ctx.lineTo(16, -car.length / 2);
+                ctx.moveTo(0, -car.length / 2);
+                ctx.lineTo(-70, -car.length / 2 - 160);
+                ctx.lineTo(70, -car.length / 2 - 160);
                 ctx.closePath();
                 ctx.fill();
-                ctx.restore();
             }
 
-            // Turbo Flame Exhaust
-            if (deviceState.turbo && car.speed > 1) {
-                ctx.save();
-                ctx.fillStyle = '#FF3300';
-                ctx.beginPath();
-                ctx.moveTo(-8, car.length / 2);
-                ctx.lineTo(0, car.length / 2 + 25 + Math.random() * 10);
-                ctx.lineTo(8, car.length / 2);
-                ctx.closePath();
-                ctx.fill();
-                ctx.restore();
-            }
-
-            // Wheels
-            drawWheel(-car.width / 2, -car.length / 3, car.frontWheelAngle); // Front Left
-            drawWheel(car.width / 2, -car.length / 3, car.frontWheelAngle);  // Front Right
-            drawWheel(-car.width / 2, car.length / 3, 0);                    // Rear Left
-            drawWheel(car.width / 2, car.length / 3, 0);                     // Rear Right
-
-            // Car Body Chassis
-            ctx.fillStyle = deviceState.emergencyStop ? '#FF3366' : '#00E5FF';
-            ctx.strokeStyle = '#FFFFFF';
+            // Chassis
+            ctx.fillStyle = '#0E1726';
+            ctx.strokeStyle = '#00E5FF';
             ctx.lineWidth = 2;
-            roundRect(ctx, -car.width / 2, -car.length / 2, car.width, car.length, 12);
+            roundRect(ctx, -car.width / 2, -car.length / 2, car.width, car.length, 8);
             ctx.fill();
             ctx.stroke();
 
-            // Windshield / Cabin
-            ctx.fillStyle = '#0D1117';
-            roundRect(ctx, -car.width / 2 + 6, -car.length / 4, car.width - 12, car.length / 2.2, 6);
-            ctx.fill();
+            // Cockpit
+            ctx.fillStyle = '#00E5FF';
+            ctx.fillRect(-car.width / 4, -car.length / 6, car.width / 2, car.length / 3);
 
-            // Headlight Bulbs
-            ctx.fillStyle = deviceState.lights ? '#FFFF99' : '#444';
-            ctx.beginPath();
-            ctx.arc(-car.width / 3, -car.length / 2 + 4, 4, 0, Math.PI * 2);
-            ctx.arc(car.width / 3, -car.length / 2 + 4, 4, 0, Math.PI * 2);
-            ctx.fill();
-
-            // Brake / Taillights
-            ctx.fillStyle = (deviceState.throttle < 0 || deviceState.emergencyStop) ? '#FF0033' : '#660011';
-            ctx.fillRect(-car.width / 2 + 4, car.length / 2 - 4, 10, 4);
-            ctx.fillRect(car.width / 2 - 14, car.length / 2 - 4, 10, 4);
-
-            ctx.restore();
-        }
-
-        function drawWheel(x, y, angle) {
-            ctx.save();
-            ctx.translate(x, y);
-            ctx.rotate(angle);
-            ctx.fillStyle = '#222';
-            ctx.strokeStyle = '#555';
-            ctx.lineWidth = 1;
-            ctx.fillRect(-4, -10, 8, 20);
-            ctx.strokeRect(-4, -10, 8, 20);
             ctx.restore();
         }
 
         // 2. TANK SIMULATION
         function renderTankSimulation() {
             drawGrid();
-
             const left = deviceState.leftMotor / 100;
             const right = deviceState.rightMotor / 100;
-
             const fwd = (left + right) / 2;
             const turn = (left - right) * 0.04;
 
@@ -714,17 +759,10 @@
             ctx.translate(tank.x, tank.y);
             ctx.rotate(tank.angle + Math.PI / 2);
 
-            // Left Tread
+            // Treads
             ctx.fillStyle = '#222';
             ctx.fillRect(-38, -45, 16, 90);
-            ctx.strokeStyle = '#00FF88';
-            ctx.strokeRect(-38, -45, 16, 90);
-
-            // Right Tread
-            ctx.fillStyle = '#222';
             ctx.fillRect(22, -45, 16, 90);
-            ctx.strokeStyle = '#00FF88';
-            ctx.strokeRect(22, -45, 16, 90);
 
             // Hull
             ctx.fillStyle = '#1B2636';
@@ -734,13 +772,9 @@
             ctx.fill();
             ctx.stroke();
 
-            // Turret & Cannon
+            // Turret
             ctx.fillStyle = '#00FF88';
-            ctx.beginPath();
-            ctx.arc(0, 0, 16, 0, Math.PI * 2);
-            ctx.fill();
-
-            ctx.fillStyle = '#00FF88';
+            ctx.beginPath(); ctx.arc(0, 0, 16, 0, Math.PI * 2); ctx.fill();
             ctx.fillRect(-4, -48, 8, 36);
 
             ctx.restore();
@@ -751,67 +785,160 @@
             const centerX = canvas.width / 2;
             const centerY = canvas.height * 0.75;
 
-            // Draw Base Platform
             ctx.fillStyle = '#30363D';
             ctx.fillRect(centerX - 60, centerY, 120, 24);
 
-            // Base Rotation indicator
-            ctx.fillStyle = '#00E5FF';
-            ctx.font = '14px monospace';
-            ctx.fillText(`Base: ${deviceState.s1}°`, centerX - 40, centerY + 45);
-
-            // Kinematic Joints
             const shoulderLen = 120;
             const elbowLen = 100;
-
-            const a1 = (deviceState.s2 - 90) * (Math.PI / 180) - Math.PI / 2; // Shoulder angle
-            const a2 = a1 + (deviceState.s3 - 90) * (Math.PI / 180);          // Elbow angle
+            const a1 = (deviceState.s2 - 90) * (Math.PI / 180) - Math.PI / 2;
+            const a2 = a1 + (deviceState.s3 - 90) * (Math.PI / 180);
 
             const joint1X = centerX;
             const joint1Y = centerY;
-
             const joint2X = joint1X + Math.cos(a1) * shoulderLen;
             const joint2Y = joint1Y + Math.sin(a1) * shoulderLen;
-
             const clawX = joint2X + Math.cos(a2) * elbowLen;
             const clawY = joint2Y + Math.sin(a2) * elbowLen;
 
-            // Shoulder Bone
-            ctx.strokeStyle = '#00E5FF';
-            ctx.lineWidth = 14;
+            ctx.strokeStyle = '#00E5FF'; ctx.lineWidth = 14; ctx.lineCap = 'round';
+            ctx.beginPath(); ctx.moveTo(joint1X, joint1Y); ctx.lineTo(joint2X, joint2Y); ctx.stroke();
+
+            ctx.strokeStyle = '#FFB800'; ctx.lineWidth = 10;
+            ctx.beginPath(); ctx.moveTo(joint2X, joint2Y); ctx.lineTo(clawX, clawY); ctx.stroke();
+
+            ctx.fillStyle = '#FFFFFF';
+            ctx.beginPath(); ctx.arc(joint1X, joint1Y, 10, 0, Math.PI * 2); ctx.arc(joint2X, joint2Y, 8, 0, Math.PI * 2); ctx.fill();
+
+            const gripSpread = (deviceState.s4 / 180) * 25 + 5;
+            ctx.strokeStyle = '#FF3366'; ctx.lineWidth = 6;
+            ctx.beginPath(); ctx.moveTo(clawX - gripSpread, clawY - 15); ctx.lineTo(clawX, clawY); ctx.lineTo(clawX + gripSpread, clawY - 15); ctx.stroke();
+        }
+
+        // 4. AEROMODELLING / DRONE / PLANE SIMULATION
+        function renderAeroSimulation() {
+            drawGrid();
+
+            const cx = canvas.width / 2;
+            const cy = canvas.height / 2;
+            const r = (deviceState.aeroRoll || 0) * 0.015;
+            const p = (deviceState.aeroPitch || 0) * 0.015;
+            const y_rot = (deviceState.aeroYaw || 0) * 0.015;
+            const thr = (deviceState.aeroThrottle || 0);
+
+            drone.propAngle += (thr > 0 ? 0.3 + (thr / 100) * 0.8 : (deviceState.armed ? 0.1 : 0));
+
+            ctx.save();
+            ctx.translate(cx, cy);
+            ctx.rotate(r);
+
+            // Artificial Horizon Mini Gauge (PFD)
+            ctx.save();
+            ctx.translate(-cx + 90, -cy + 90);
+            ctx.beginPath(); ctx.arc(0, 0, 60, 0, Math.PI * 2); ctx.clip();
+            ctx.fillStyle = '#0F2644'; ctx.fillRect(-70, -70, 140, 70 + p * 40); // Sky
+            ctx.fillStyle = '#1B3B26'; ctx.fillRect(-70, p * 40, 140, 140);     // Ground
+            ctx.strokeStyle = '#00E5FF'; ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.moveTo(-60, p * 40); ctx.lineTo(60, p * 40); ctx.stroke(); // Horizon
+            ctx.strokeStyle = '#FFB800'; ctx.lineWidth = 2;
+            ctx.strokeRect(-12, -4, 24, 8); // Reticle
+            ctx.restore();
+
+            // Drone Arms (X configuration)
+            ctx.strokeStyle = '#2A364F';
+            ctx.lineWidth = 10;
             ctx.lineCap = 'round';
             ctx.beginPath();
-            ctx.moveTo(joint1X, joint1Y);
-            ctx.lineTo(joint2X, joint2Y);
+            ctx.moveTo(-75, -75); ctx.lineTo(75, 75);
+            ctx.moveTo(75, -75); ctx.lineTo(-75, 75);
             ctx.stroke();
 
-            // Elbow Bone
-            ctx.strokeStyle = '#FFB800';
-            ctx.lineWidth = 10;
-            ctx.beginPath();
-            ctx.moveTo(joint2X, joint2Y);
-            ctx.lineTo(clawX, clawY);
+            // Center Frame
+            ctx.fillStyle = '#141A24';
+            ctx.strokeStyle = deviceState.armed ? '#00FF88' : '#FF3366';
+            ctx.lineWidth = 3;
+            roundRect(ctx, -32, -32, 64, 64, 10);
+            ctx.fill();
             ctx.stroke();
 
-            // Joints Circles
-            ctx.fillStyle = '#FFFFFF';
+            // Arrow pointing FRONT
+            ctx.fillStyle = '#00E5FF';
             ctx.beginPath();
-            ctx.arc(joint1X, joint1Y, 10, 0, Math.PI * 2);
-            ctx.arc(joint2X, joint2Y, 8, 0, Math.PI * 2);
+            ctx.moveTo(0, -22); ctx.lineTo(12, 10); ctx.lineTo(0, 4); ctx.lineTo(-12, 10);
+            ctx.closePath();
             ctx.fill();
 
-            // Gripper Claw
-            const gripSpread = (deviceState.s4 / 180) * 25 + 5;
-            ctx.strokeStyle = '#FF3366';
-            ctx.lineWidth = 6;
-            ctx.beginPath();
-            ctx.moveTo(clawX - gripSpread, clawY - 15);
-            ctx.lineTo(clawX, clawY);
-            ctx.lineTo(clawX + gripSpread, clawY - 15);
-            ctx.stroke();
+            // 4 Motors and Propellers
+            const motorPos = [
+                { x: -75, y: -75, dir: 1, label: 'M4' },
+                { x: 75, y: -75, dir: -1, label: 'M2' },
+                { x: -75, y: 75, dir: -1, label: 'M3' },
+                { x: 75, y: 75, dir: 1, label: 'M1' }
+            ];
 
-            ctx.fillStyle = '#FF3366';
-            ctx.fillText(`Garra: ${deviceState.s4}°`, clawX - 30, clawY - 25);
+            motorPos.forEach(m => {
+                ctx.fillStyle = '#30363D';
+                ctx.beginPath(); ctx.arc(m.x, m.y, 14, 0, Math.PI * 2); ctx.fill();
+
+                // Spinning Propeller
+                ctx.save();
+                ctx.translate(m.x, m.y);
+                ctx.rotate(drone.propAngle * m.dir);
+                ctx.fillStyle = deviceState.armed ? 'rgba(0, 255, 136, 0.7)' : 'rgba(139, 148, 158, 0.4)';
+                ctx.fillRect(-28, -4, 56, 8);
+                ctx.restore();
+            });
+
+            ctx.restore();
+        }
+
+        // 5. CUSTOM LAYOUT VIEW
+        function renderCustomLayoutView() {
+            drawGrid();
+            const keys = Object.keys(deviceState.customElements || {});
+            const cx = canvas.width / 2;
+            const cy = canvas.height / 2;
+
+            ctx.fillStyle = '#FFF';
+            ctx.font = 'bold 16px -apple-system, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('🎛️ Painel de Layout Personalizado', cx, 40);
+
+            if (keys.length === 0) {
+                ctx.fillStyle = 'var(--text-muted)';
+                ctx.font = '14px sans-serif';
+                ctx.fillText('Nenhum elemento personalizado recebido ainda.', cx, cy - 10);
+                ctx.fillText('Adicione joysticks, sliders ou botões personalizados no OmniRC e acione-os!', cx, cy + 18);
+                return;
+            }
+
+            const cols = Math.min(4, keys.length);
+            const cardW = 160;
+            const cardH = 80;
+            const startX = cx - (cols * cardW) / 2;
+            let row = 0;
+
+            keys.forEach((key, idx) => {
+                const c = idx % cols;
+                if (idx > 0 && c === 0) row++;
+                const x = startX + c * (cardW + 15);
+                const y = 80 + row * (cardH + 15);
+
+                ctx.fillStyle = '#141A24';
+                ctx.strokeStyle = '#00E5FF';
+                ctx.lineWidth = 1.5;
+                roundRect(ctx, x, y, cardW, cardH, 8);
+                ctx.fill();
+                ctx.stroke();
+
+                ctx.fillStyle = '#FFB800';
+                ctx.font = 'bold 13px monospace';
+                ctx.textAlign = 'left';
+                ctx.fillText(key, x + 12, y + 26);
+
+                ctx.fillStyle = '#FFF';
+                ctx.font = 'bold 20px monospace';
+                ctx.fillText(`${deviceState.customElements[key]}`, x + 12, y + 58);
+            });
         }
 
         function drawGrid() {
@@ -841,22 +968,17 @@
         }
 
         // ==========================================
-        // REAL-TIME SERVER COMMUNICATION (SSE / Polling)
+        // REAL-TIME SERVER COMMUNICATION
         // ==========================================
         function initEventStream() {
             const evtSource = new EventSource('/events');
-
             evtSource.onmessage = (e) => {
                 try {
                     const data = JSON.parse(e.data);
                     handleIncomingPacket(data);
-                } catch (err) {
-                    console.error("SSE parse error", err);
-                }
+                } catch (err) {}
             };
-
             evtSource.onerror = () => {
-                // Fallback to polling every 40ms if SSE drops
                 setTimeout(pollState, 100);
             };
         }
@@ -881,11 +1003,10 @@
 
             if (data.client_ip) {
                 statusPill.classList.add('connected');
-                statusText.innerText = `Celular Conectado (${data.client_ip})`;
+                statusText.innerText = `Conectado (${data.client_ip})`;
                 clientIpEl.innerText = `${data.client_ip}:${data.client_port}`;
             }
 
-            // Packet counter and rate
             packetCounter = data.packet_count || packetCounter;
             document.getElementById('val-pkt-count').innerText = packetCounter;
 
@@ -897,19 +1018,29 @@
                 lastHzCheck = now;
             }
 
-            // Update Device States
             if (data.state) {
                 Object.assign(deviceState, data.state);
 
-                // Update HUD Elements
-                document.getElementById('hud-throttle').innerText = `${deviceState.throttle}%`;
-                document.getElementById('hud-steering').innerText = `${deviceState.steering}%`;
+                // Top meta
+                document.getElementById('val-proto-detected').innerText = deviceState.protocolDetected || "DESCONHECIDO";
+                const armBadge = document.getElementById('val-arm-badge');
+                if (deviceState.armed) {
+                    armBadge.innerText = "ARMED ⚠️";
+                    armBadge.style.background = "rgba(0,255,136,0.2)";
+                    armBadge.style.color = "var(--accent-green)";
+                } else {
+                    armBadge.innerText = "DISARMED";
+                    armBadge.style.background = "rgba(255,51,102,0.2)";
+                    armBadge.style.color = "var(--accent-red)";
+                }
+                document.getElementById('val-flight-mode').innerText = deviceState.flightMode || "--";
+
+                // Canvas HUD
+                document.getElementById('hud-throttle').innerText = `${deviceState.aeroThrottle || deviceState.throttle}%`;
+                document.getElementById('hud-steering').innerText = `${deviceState.aeroRoll || deviceState.steering}%`;
                 const kmh = Math.round(Math.abs(car.speed) * 4.5);
                 document.getElementById('hud-speed').innerText = `${kmh} km/h`;
-
-                const lightsEl = document.getElementById('hud-lights');
-                lightsEl.innerText = deviceState.lights ? 'LIGADO' : 'DESLIGADO';
-                lightsEl.style.color = deviceState.lights ? 'var(--accent-amber)' : 'var(--text-muted)';
+                document.getElementById('hud-gimbal').innerText = `X:${deviceState.gimbalX}° Y:${deviceState.gimbalY}°`;
 
                 // Gauges
                 document.getElementById('val-motor-l').innerText = `${deviceState.leftMotor}%`;
@@ -917,16 +1048,45 @@
                 document.getElementById('val-motor-r').innerText = `${deviceState.rightMotor}%`;
                 document.getElementById('bar-motor-r').style.width = `${Math.abs(deviceState.rightMotor)}%`;
 
-                document.getElementById('val-steer-angle').innerText = `${deviceState.steering}°`;
-                document.getElementById('bar-steer').style.width = `${Math.abs(deviceState.steering)}%`;
+                // Gyro
+                document.getElementById('val-gyro-orient').innerText = `${deviceState.sensorRoll.toFixed(1)}° / ${deviceState.sensorPitch.toFixed(1)}°`;
+                document.getElementById('bar-gyro').style.width = `${Math.min(100, Math.abs(deviceState.sensorRoll))}%`;
 
-                // Horn Alert
-                const hornAlert = document.getElementById('horn-alert');
-                hornAlert.style.display = deviceState.horn ? 'flex' : 'none';
-                playHornTone(deviceState.horn);
+                // Horn
+                document.getElementById('horn-alert').style.display = deviceState.horn ? 'flex' : 'none';
+
+                // 16 Radio Channels
+                if (deviceState.channels && Array.isArray(deviceState.channels)) {
+                    for (let i = 0; i < 16; i++) {
+                        const us = deviceState.channels[i] || 1500;
+                        const elVal = document.getElementById(`val-ch-us-${i}`);
+                        const elBar = document.getElementById(`bar-ch-${i}`);
+                        if (elVal) elVal.innerText = `${us}µs`;
+                        if (elBar) {
+                            const pct = Math.max(0, Math.min(100, ((us - 1000) / 1000) * 100));
+                            elBar.style.width = `${pct}%`;
+                        }
+                    }
+                }
+
+                // Custom Elements Grid
+                const customKeys = Object.keys(deviceState.customElements || {});
+                const cardCustom = document.getElementById('cardCustomElements');
+                const customGrid = document.getElementById('customElementsGrid');
+                if (customKeys.length > 0) {
+                    cardCustom.style.display = 'flex';
+                    document.getElementById('val-custom-count').innerText = `${customKeys.length} elementos`;
+                    customGrid.innerHTML = '';
+                    customKeys.forEach(k => {
+                        const chip = document.createElement('div');
+                        chip.className = 'custom-chip';
+                        chip.innerHTML = `<strong>${k}</strong><span>${deviceState.customElements[k]}</span>`;
+                        customGrid.appendChild(chip);
+                    });
+                }
             }
 
-            // Append new log lines
+            // Append new logs
             if (data.new_logs && Array.isArray(data.new_logs)) {
                 const screen = document.getElementById('log-screen');
                 data.new_logs.forEach(log => {
@@ -935,12 +1095,12 @@
                     line.innerText = log.text;
                     screen.appendChild(line);
                 });
-                while (screen.childNodes.length > 120) screen.removeChild(screen.firstChild);
+                while (screen.childNodes.length > 150) screen.removeChild(screen.firstChild);
                 screen.scrollTop = screen.scrollHeight;
             }
         }
 
-        // Fetch IP Addresses of PC
+        // Fetch IP addresses
         fetch('/api/ips')
             .then(r => r.json())
             .then(ips => {

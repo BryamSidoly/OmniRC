@@ -1,9 +1,8 @@
 import socket
 import datetime
-import sys
+import protocol_decoder
 
 UDP_PORT = 8888
-TCP_PORT = 8888
 
 def start_udp_receiver():
     hostname = socket.gethostname()
@@ -15,15 +14,16 @@ def start_udp_receiver():
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.bind(("0.0.0.0", UDP_PORT))
 
-    print("=" * 65)
-    print("  🚗 OmniRC - Receptor Simulado de Teste (ESP32 / RC Toy)")
-    print("=" * 65)
+    print("=" * 72)
+    print("  🚀 OmniRC - Receptor Simulado Universal Multi-Protocolo")
+    print("  Suporta: CRSF (ELRS), SBUS, IBUS, MAVLink, MSP, AERO, DRIVE, TANK, CUSTOM")
+    print("=" * 72)
     print(f"Ouvindo na porta UDP {UDP_PORT} em todas as interfaces de rede.")
     print("Coloque um destes IPs no aplicativo OmniRC (aba Wi-Fi):")
     for ip in ips:
         print(f" -> IP: {ip} | Porta: {UDP_PORT}")
-    print("=" * 65)
-    print("Aguardando pacotes dos joysticks e comandos... (Ctrl+C para sair)\n")
+    print("=" * 72)
+    print("Aguardando pacotes dos joysticks, sensores e canais... (Ctrl+C para sair)\n")
 
     packet_count = 0
     try:
@@ -31,13 +31,9 @@ def start_udp_receiver():
             data, addr = sock.recvfrom(2048)
             packet_count += 1
             now = datetime.datetime.now().strftime("%H:%M:%S.%f")[:-3]
-            try:
-                decoded = data.decode("utf-8").strip()
-            except UnicodeDecodeError:
-                decoded = data.hex(" ")
-
-            # Print formatted log
-            print(f"[{now}] #{packet_count:<4} de {addr[0]}:{addr[1]} -> {decoded}")
+            decoded = protocol_decoder.decode_packet(data)
+            proto = f"[{decoded['protocol']}]"
+            print(f"[{now}] #{packet_count:<4} {addr[0]}:{addr[1]} {proto:<15} -> {decoded['summary']}")
     except KeyboardInterrupt:
         print("\nReceptor finalizado.")
     finally:
