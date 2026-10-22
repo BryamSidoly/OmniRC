@@ -29,6 +29,8 @@ def start_udp_receiver():
     try:
         while True:
             data, addr = sock.recvfrom(2048)
+            if data.startswith(b"PING:"):
+                sock.sendto(b"PONG:" + data[5:], addr)
             packet_count += 1
             now = datetime.datetime.now().strftime("%H:%M:%S.%f")[:-3]
             decoded = protocol_decoder.decode_packet(data)

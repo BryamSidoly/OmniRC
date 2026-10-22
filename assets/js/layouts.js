@@ -161,6 +161,11 @@ const LayoutManager = {
             }
         }
 
+        // Ensure rc_car maintains its official default structure and is not corrupted by custom layouts
+        if (!this.layouts.rc_car || !Array.isArray(this.layouts.rc_car.buttons) || this.layouts.rc_car.items) {
+            this.layouts.rc_car = JSON.parse(JSON.stringify(this.defaultLayouts.rc_car));
+        }
+
         // Auto-migrate legacy custom_matrix with buttons/sliders to items array if needed
         const cm = this.layouts.custom_matrix;
         if (cm && !cm.items) {
@@ -216,8 +221,12 @@ const LayoutManager = {
         return false;
     },
 
-    saveCurrent(updatedLayout) {
-        this.layouts[this.currentLayoutId] = updatedLayout;
+    saveLayout(layoutId, updatedLayout) {
+        if (!this.layouts) this.init();
+        const id = layoutId || (updatedLayout ? updatedLayout.id : this.currentLayoutId);
+        if (id && updatedLayout) {
+            this.layouts[id] = updatedLayout;
+        }
         const serialized = JSON.stringify(this.layouts);
         if (window.Android && window.Android.saveConfig) {
             window.Android.saveConfig('layouts', serialized);
@@ -228,10 +237,17 @@ const LayoutManager = {
         }
     },
 
+    saveCurrent(updatedLayout) {
+        const targetId = (updatedLayout && updatedLayout.id) ? updatedLayout.id : this.currentLayoutId;
+        this.saveLayout(targetId, updatedLayout);
+    },
+
     resetToDefault(id) {
-        if (this.defaultLayouts[id]) {
-            this.layouts[id] = JSON.parse(JSON.stringify(this.defaultLayouts[id]));
-            this.saveCurrent(this.layouts[id]);
+        const targetId = id || 'custom_matrix';
+        if (this.defaultLayouts[targetId]) {
+            if (!this.layouts) this.init();
+            this.layouts[targetId] = JSON.parse(JSON.stringify(this.defaultLayouts[targetId]));
+            this.saveLayout(targetId, this.layouts[targetId]);
         }
     }
 };

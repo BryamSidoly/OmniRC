@@ -10,6 +10,8 @@
     --accent-red: #FF3366;
     --accent-amber: #FFB800;
     --font-stack: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    --controls-opacity: 0.85;
+    --controls-bg-alpha: 0.65;
 }
 
 * {
@@ -679,25 +681,41 @@ html, body {
 }
 
 .fpv-container.hud-mode {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
     z-index: 1;
     pointer-events: none;
     overflow: hidden;
+    background: #000;
+}
+
+.fpv-container.hud-mode .fpv-viewport {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+}
+
+.fpv-container.hud-mode .fpv-stream-media {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
 }
 
 .fpv-container.hud-mode .fpv-header {
     pointer-events: auto;
     position: absolute;
-    top: 50px;
-    right: 12px;
-    background: rgba(10, 15, 25, 0.85);
+    top: 8px;
+    right: 8px;
+    background: rgba(10, 15, 25, 0.75);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(0, 229, 255, 0.3);
     border-radius: 8px;
-    padding: 4px 8px;
-    z-index: 105;
+    padding: 3px 8px;
+    z-index: 20;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
 }
 
 .fpv-header {
@@ -798,26 +816,45 @@ html, body {
 body.camera-hud-active #main-viewport {
     background: transparent !important;
     position: relative;
-    z-index: 10;
+    z-index: 5;
 }
 
 body.camera-hud-active .layout-container {
     background: transparent !important;
+    position: relative;
+    z-index: 10 !important;
+    pointer-events: auto !important;
 }
 
 body.camera-hud-active .joystick-zone {
-    background: rgba(13, 20, 36, 0.45) !important;
+    opacity: var(--controls-opacity);
+    background: rgba(13, 20, 36, var(--controls-bg-alpha)) !important;
     backdrop-filter: blur(4px);
     border-color: rgba(0, 229, 255, 0.5) !important;
+    pointer-events: auto !important;
 }
 
+body.camera-hud-active .center-console,
 body.camera-hud-active .hud-panel,
 body.camera-hud-active .slider-card,
 body.camera-hud-active .builder-item-card,
 body.camera-hud-active .aero-center-console,
-body.camera-hud-active .tx-center-monitor {
-    background: rgba(13, 20, 36, 0.55) !important;
+body.camera-hud-active .tx-center-monitor,
+body.camera-hud-active .aero-zone,
+body.camera-hud-active .custom-item,
+body.camera-hud-active .pfd-container {
+    opacity: var(--controls-opacity);
+    background: rgba(13, 20, 36, var(--controls-bg-alpha)) !important;
     backdrop-filter: blur(6px);
+    pointer-events: auto !important;
+}
+
+body.camera-hud-active .btn-control,
+body.camera-hud-active .buttons-grid button,
+body.camera-hud-active .custom-slider,
+body.camera-hud-active .aero-hud-card {
+    opacity: var(--controls-opacity);
+    pointer-events: auto !important;
 }
 
 /* ==========================================
@@ -1312,3 +1349,815 @@ body.camera-hud-active .tx-center-monitor {
     transition: width 0.05s ease;
 }
 
+/* ==========================================
+   CONNECTION DIAGNOSTICS & TELEMETRY HUD
+   ========================================== */
+
+/* Top Nav Diagnostics & Telemetry Quick Buttons */
+.diag-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    font-family: monospace;
+    background: var(--bg-surface-elevated);
+    border: 1px solid var(--border-color);
+    padding: 4px 8px;
+    border-radius: 6px;
+    color: var(--text-primary);
+}
+
+.diag-val-good {
+    color: var(--accent-green);
+}
+.diag-val-warn {
+    color: var(--accent-amber);
+}
+.diag-val-crit {
+    color: var(--accent-red);
+}
+
+/* UNIVERSAL FLOATING DIAGNOSTICS HUD */
+.diag-floating-hud {
+    position: absolute;
+    top: 50px;
+    right: 12px;
+    background: rgba(18, 23, 34, 0.92);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 8px 12px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.55);
+    z-index: 100;
+    width: 250px;
+    font-size: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    user-select: none;
+    transition: all 0.2s ease;
+}
+
+.diag-floating-hud.minimized {
+    width: auto;
+    padding: 4px 8px;
+}
+
+.diag-floating-hud.minimized .diag-hud-body {
+    display: none;
+}
+
+.diag-hud-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-weight: 700;
+    color: var(--accent-cyan);
+    font-size: 0.78rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    padding-bottom: 4px;
+}
+
+.diag-hud-actions {
+    display: flex;
+    gap: 4px;
+}
+
+.diag-hud-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-family: monospace;
+}
+
+.diag-hud-label {
+    color: var(--text-secondary);
+    font-family: var(--font-stack);
+}
+
+.diag-hud-val {
+    font-weight: 700;
+}
+
+.diag-quality-bar {
+    width: 100%;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-top: 2px;
+}
+
+.diag-quality-fill {
+    height: 100%;
+    background: var(--accent-green);
+    width: 100%;
+    transition: width 0.3s ease, background-color 0.3s ease;
+}
+
+/* UNIVERSAL VEHICLE TELEMETRY BAR (CAR, TANK, ROVER, GAMEPAD, ETC.) */
+.universal-telemetry-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px 12px;
+    background: rgba(14, 18, 27, 0.95);
+    border-bottom: 1px solid var(--border-color);
+    font-size: 0.74rem;
+    font-family: monospace;
+    z-index: 9;
+    overflow-x: auto;
+    white-space: nowrap;
+    gap: 12px;
+}
+
+.telem-bar-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    color: var(--text-secondary);
+}
+
+.telem-bar-val {
+    color: var(--text-primary);
+    font-weight: 700;
+}
+
+.telem-battery-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: rgba(0, 255, 136, 0.12);
+    border: 1px solid rgba(0, 255, 136, 0.3);
+    color: var(--accent-green);
+    font-weight: 700;
+}
+
+.telem-battery-pill.warn {
+    background: rgba(255, 184, 0, 0.15);
+    border-color: rgba(255, 184, 0, 0.4);
+    color: var(--accent-amber);
+}
+
+.telem-battery-pill.crit {
+    background: rgba(255, 51, 102, 0.2);
+    border-color: rgba(255, 51, 102, 0.5);
+    color: var(--accent-red);
+    animation: telem-blink 1s infinite alternate;
+}
+
+.telem-alert-pill {
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 0.68rem;
+    font-weight: 800;
+    background: rgba(0, 255, 136, 0.1);
+    color: var(--accent-green);
+    border: 1px solid rgba(0, 255, 136, 0.2);
+    letter-spacing: 0.5px;
+}
+
+.telem-alert-pill.active {
+    background: rgba(255, 51, 102, 0.25);
+    color: var(--accent-red);
+    border-color: rgba(255, 51, 102, 0.6);
+    animation: telem-blink 0.8s infinite alternate;
+}
+
+@keyframes telem-blink {
+    from { opacity: 0.7; transform: scale(0.98); }
+    to { opacity: 1; transform: scale(1.02); }
+}
+
+/* PRIMARY FLIGHT DISPLAY (PFD) & COCKPIT TELEMETRY PANEL */
+.flight-pfd-container {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 8px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.pfd-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    padding-bottom: 4px;
+}
+
+.pfd-title {
+    font-size: 0.75rem;
+    font-weight: 800;
+    color: var(--accent-cyan);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    letter-spacing: 0.5px;
+}
+
+.pfd-hud-canvas-wrap {
+    position: relative;
+    width: 100%;
+    height: 110px;
+    background: #080C14;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.pfd-grid-metrics {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+}
+
+.pfd-card {
+    background: var(--bg-surface-elevated);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 4px 6px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.pfd-card-label {
+    font-size: 0.62rem;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+}
+
+.pfd-card-val {
+    font-size: 0.85rem;
+    font-weight: 700;
+    font-family: monospace;
+    color: var(--accent-cyan);
+}
+
+.pfd-alert-banner {
+    padding: 4px 8px;
+    border-radius: 4px;
+    background: rgba(255, 51, 102, 0.2);
+    border: 1px solid rgba(255, 51, 102, 0.5);
+    color: var(--accent-red);
+    font-weight: 700;
+    font-size: 0.72rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    animation: telem-blink 0.8s infinite alternate;
+}
+
+/* DIAGNOSTIC MODAL CARDS */
+.diag-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    margin-bottom: 12px;
+}
+
+.diag-stat-card {
+    background: var(--bg-surface-elevated);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.diag-stat-title {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+}
+
+.diag-stat-big {
+    font-size: 1.4rem;
+    font-weight: 800;
+    font-family: monospace;
+    color: var(--accent-cyan);
+}
+
+.diag-stat-sub {
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+}
+
+.diag-log-box {
+    background: #080B11;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 8px;
+    max-height: 90px;
+    overflow-y: auto;
+    font-family: monospace;
+    font-size: 0.72rem;
+    color: var(--text-secondary);
+}
+
+/* PROFILES MANAGER STYLES */
+.profiles-list-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-height: 380px;
+    overflow-y: auto;
+    padding-right: 4px;
+}
+
+.profile-card {
+    background: var(--bg-surface-elevated);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    transition: all 0.2s ease;
+}
+
+.profile-card:hover {
+    border-color: var(--accent-cyan);
+    box-shadow: 0 4px 14px rgba(0, 229, 255, 0.08);
+}
+
+.profile-card.active-profile {
+    border-color: var(--accent-green);
+    background: linear-gradient(90deg, rgba(0, 255, 136, 0.08) 0%, rgba(18, 23, 34, 0.6) 100%);
+}
+
+.profile-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.profile-name {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.profile-badges-row {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+}
+
+.profile-badge {
+    font-size: 0.68rem;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 10px;
+    background: rgba(0, 229, 255, 0.12);
+    color: var(--accent-cyan);
+    border: 1px solid rgba(0, 229, 255, 0.3);
+}
+
+.profile-badge.factory {
+    background: rgba(255, 184, 0, 0.12);
+    color: var(--accent-amber);
+    border-color: rgba(255, 184, 0, 0.3);
+}
+
+.profile-desc {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    line-height: 1.35;
+}
+
+.profile-meta-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 2px;
+}
+
+.profile-meta-pill {
+    font-size: 0.68rem;
+    background: var(--bg-surface);
+    color: var(--text-secondary);
+    border: 1px solid var(--border-color);
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-family: monospace;
+}
+
+.profile-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 6px;
+    padding-top: 6px;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.btn-profile-apply {
+    background: var(--accent-green);
+    color: #0A0D14;
+    font-weight: 700;
+    font-size: 0.75rem;
+    padding: 5px 12px;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    transition: opacity 0.15s;
+}
+
+.btn-profile-apply:hover {
+    opacity: 0.9;
+}
+
+.btn-profile-tool {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    font-size: 0.72rem;
+    padding: 5px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    transition: all 0.15s;
+}
+
+.btn-profile-tool:hover {
+    border-color: var(--accent-cyan);
+    color: var(--accent-cyan);
+}
+
+.btn-profile-delete {
+    background: rgba(255, 51, 102, 0.1);
+    border: 1px solid rgba(255, 51, 102, 0.3);
+    color: var(--accent-red);
+    font-size: 0.72rem;
+    padding: 5px 8px;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.btn-profile-delete:hover {
+    background: var(--accent-red);
+    color: #FFF;
+}
+
+
+
+
+/* ==========================================
+   TOP NAVIGATION BAR & RESPONSIVE LAYOUT
+   ========================================== */
+.top-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    background-color: var(--bg-surface);
+    border-bottom: 1px solid var(--border-color);
+    z-index: 50;
+    gap: 8px;
+    flex-wrap: nowrap;
+}
+
+.brand-section {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.nav-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: nowrap;
+}
+
+.select-layout {
+    background-color: var(--bg-surface-elevated);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    padding: 6px 10px;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    outline: none;
+    max-width: 170px;
+}
+
+.btn-nav-main {
+    white-space: nowrap;
+}
+
+.btn-sidebar-open {
+    background: linear-gradient(135deg, rgba(0, 229, 255, 0.15), rgba(0, 255, 136, 0.15)) !important;
+    border-color: var(--accent-cyan) !important;
+    color: var(--accent-cyan) !important;
+    font-weight: 700 !important;
+    white-space: nowrap;
+}
+
+.btn-sidebar-open:hover {
+    background: rgba(0, 229, 255, 0.25) !important;
+    box-shadow: 0 0 10px rgba(0, 229, 255, 0.3);
+}
+
+@media (max-width: 720px) {
+    .top-nav {
+        padding: 6px 8px;
+        gap: 6px;
+    }
+    .status-indicator {
+        display: none;
+    }
+    .select-layout {
+        max-width: 130px;
+        font-size: 0.78rem;
+        padding: 5px 6px;
+    }
+    .btn-nav-main {
+        padding: 6px 8px;
+        font-size: 0.78rem;
+    }
+    .btn-emergency {
+        padding: 6px 9px;
+        font-size: 0.78rem;
+    }
+    .btn-sidebar-open {
+        padding: 6px 8px;
+        font-size: 0.78rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .app-title {
+        font-size: 0.95rem;
+    }
+    .select-layout {
+        max-width: 110px;
+        font-size: 0.74rem;
+        padding: 4px 5px;
+    }
+    .btn-nav-main {
+        padding: 5px 6px;
+        font-size: 0.74rem;
+    }
+    .btn-emergency {
+        padding: 5px 8px;
+        font-size: 0.74rem;
+    }
+    .btn-sidebar-open {
+        padding: 5px 6px;
+        font-size: 0.74rem;
+    }
+}
+
+/* ==========================================
+   MENU LATERAL (SIDEBAR DRAWER)
+   ========================================== */
+.sidebar-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.65);
+    backdrop-filter: blur(4px);
+    z-index: 1000;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+
+.sidebar-backdrop.active {
+    opacity: 1;
+    visibility: visible;
+}
+
+.sidebar-drawer {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 320px;
+    max-width: 85vw;
+    background: var(--bg-surface);
+    border-left: 1px solid var(--border-color);
+    box-shadow: -8px 0 30px rgba(0, 0, 0, 0.75);
+    z-index: 1001;
+    display: flex;
+    flex-direction: column;
+    transform: translateX(100%);
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    overflow: hidden;
+}
+
+.sidebar-drawer.active {
+    transform: translateX(0);
+}
+
+.sidebar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 16px;
+    background: var(--bg-surface-elevated);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.sidebar-brand {
+    display: flex;
+    flex-direction: column;
+}
+
+.sidebar-brand-title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--accent-cyan);
+}
+
+.sidebar-brand-sub {
+    font-size: 0.72rem;
+    color: var(--text-secondary);
+}
+
+.btn-sidebar-close {
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    background: transparent;
+    border: 1px solid var(--border-color);
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+    transition: all 0.2s;
+}
+
+.btn-sidebar-close:hover {
+    background: rgba(255, 51, 102, 0.15);
+    color: var(--accent-red);
+    border-color: rgba(255, 51, 102, 0.3);
+}
+
+.sidebar-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.sidebar-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.sidebar-group-title {
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--text-secondary);
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+}
+
+.sidebar-menu-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.sidebar-menu-btn {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    background: var(--bg-surface-elevated);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    color: var(--text-primary);
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.2s ease;
+    width: 100%;
+}
+
+.sidebar-menu-btn:hover {
+    border-color: var(--accent-cyan);
+    background: rgba(0, 229, 255, 0.08);
+    transform: translateX(-2px);
+}
+
+.sidebar-icon {
+    font-size: 1.3rem;
+    flex-shrink: 0;
+}
+
+.sidebar-btn-texts {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.sidebar-btn-title {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.sidebar-btn-sub {
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.sidebar-card {
+    background: var(--bg-surface-elevated);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.opacity-presets-row {
+    display: flex;
+    gap: 6px;
+    margin-top: 4px;
+}
+
+.btn-opacity-chip {
+    flex: 1;
+    font-size: 0.68rem;
+    padding: 4px 0;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.15s;
+}
+
+.btn-opacity-chip:hover,
+.btn-opacity-chip.active {
+    border-color: var(--accent-cyan);
+    color: var(--accent-cyan);
+    background: rgba(0, 229, 255, 0.1);
+}
+
+/* ==========================================
+   CAMERA RECORDING & PULSING STYLES
+   ========================================== */
+@keyframes recPulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.6; transform: scale(1.05); }
+}
+
+.recording-active {
+    animation: recPulse 1.2s infinite ease-in-out !important;
+    background: #ff0055 !important;
+    color: #fff !important;
+    box-shadow: 0 0 10px rgba(255, 0, 85, 0.7);
+}
+
+.fpv-rec-indicator {
+    position: absolute;
+    top: 14px;
+    left: 14px;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(255, 0, 85, 0.85);
+    color: #fff;
+    font-weight: 700;
+    font-size: 0.75rem;
+    padding: 3px 10px;
+    border-radius: 14px;
+    box-shadow: 0 0 12px rgba(255, 0, 85, 0.5);
+    animation: recPulse 1.5s infinite ease-in-out;
+}
+
+.fpv-rec-indicator .rec-dot {
+    color: #fff;
+    font-size: 0.9rem;
+}

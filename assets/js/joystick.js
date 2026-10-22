@@ -147,16 +147,36 @@ class VirtualJoystick {
     resetPosition() {
         this.currentX = 0;
         this.currentY = 0;
-        this.stick.style.transform = 'translate(0px, 0px)';
-        this.options.onChange(0, 0);
+        if (this.stick) {
+            this.stick.style.transform = 'translate(0px, 0px)';
+        }
+        if (this.options.onChange) {
+            this.options.onChange(0, 0);
+        }
     }
 
-    setValues(x, y) {
-        this.currentX = x;
-        this.currentY = y;
-        const deltaX = (x / 100) * this.options.maxDistance;
-        const deltaY = (-y / 100) * this.options.maxDistance;
-        this.stick.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
-        this.options.onChange(x, y);
+    setValues(x, y, triggerCallback = false) {
+        if (this.isActive) return;
+
+        let targetX = Math.max(-100, Math.min(100, x));
+        let targetY = Math.max(-100, Math.min(100, y));
+
+        if (this.options.axis === 'X_ONLY') targetY = 0;
+        if (this.options.axis === 'Y_ONLY') targetX = 0;
+
+        const maxDist = this.options.maxDistance || 65;
+        const deltaX = (targetX / 100) * maxDist;
+        const deltaY = (-targetY / 100) * maxDist;
+
+        if (this.stick) {
+            this.stick.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
+        }
+
+        this.currentX = targetX;
+        this.currentY = targetY;
+
+        if (triggerCallback && this.options.onChange) {
+            this.options.onChange(targetX, targetY);
+        }
     }
 }

@@ -38,22 +38,202 @@
                     </optgroup>
                 </select>
 
-                <button id="btn-open-camera" class="icon-btn" title="Câmera FPV / Vídeo">📹 Câmera</button>
-                <button id="btn-open-sensors" class="icon-btn" title="Sensores / Tilt / Giroscópio">🧭 Sensores</button>
-                <button id="btn-open-conn" class="icon-btn" title="Configurar Conexão">📡 Conexão</button>
-                <button id="btn-open-proto" class="icon-btn" title="Protocolos">⚙️ Protocolo</button>
-                <button id="btn-emergency-stop" class="icon-btn btn-emergency" title="PARADA DE EMERGÊNCIA">🛑 PARAR</button>
+                <button id="btn-open-conn" class="icon-btn btn-nav-main" title="Configurar Conexão (Wi-Fi, Bluetooth, USB)">📡 Conexão</button>
+                <button id="btn-open-proto" class="icon-btn btn-nav-main" title="Protocolos (CRSF, MAVLink, MSP, etc.)">⚙️ Protocolo</button>
+                <button id="btn-emergency-stop" class="icon-btn btn-emergency" title="PARADA DE EMERGÊNCIA" aria-label="Parada de emergência">🛑 PARAR</button>
+                <button id="btn-open-sidebar" class="icon-btn btn-sidebar-open" title="Menu Lateral & Outras Telas" aria-label="Menu Lateral">☰ Menu</button>
             </div>
         </header>
+
+        <!-- MENU LATERAL (DRAWER SIDEBAR) -->
+        <div id="sidebar-backdrop" class="sidebar-backdrop"></div>
+        <aside id="sidebar-drawer" class="sidebar-drawer" aria-label="Menu Lateral">
+            <div class="sidebar-header">
+                <div class="sidebar-brand">
+                    <span class="sidebar-brand-title">⚡ OmniRC Menu</span>
+                    <span class="sidebar-brand-sub">Painéis, Câmera & Controles</span>
+                </div>
+                <button id="btn-close-sidebar" class="icon-btn-sm btn-sidebar-close" title="Fechar Menu">✕</button>
+            </div>
+
+            <div class="sidebar-body">
+                <!-- Seção 1: Telas e Modais -->
+                <div class="sidebar-group">
+                    <span class="sidebar-group-title">TELAS & PAINÉIS</span>
+                    <div class="sidebar-menu-list">
+                        <button id="btn-open-profiles" class="sidebar-menu-btn">
+                            <span class="sidebar-icon">📁</span>
+                            <div class="sidebar-btn-texts">
+                                <span class="sidebar-btn-title">Perfis de Veículos</span>
+                                <span class="sidebar-btn-sub">Salvar, exportar & importar configs</span>
+                            </div>
+                        </button>
+
+                        <button id="btn-open-telem" class="sidebar-menu-btn">
+                            <span class="sidebar-icon">🛰️</span>
+                            <div class="sidebar-btn-texts">
+                                <span class="sidebar-btn-title">Telemetria & Painel de Voo</span>
+                                <span class="sidebar-btn-sub">PFD artificial horizon, GPS e bateria</span>
+                            </div>
+                        </button>
+
+                        <button id="btn-open-camera" class="sidebar-menu-btn">
+                            <span class="sidebar-icon">📹</span>
+                            <div class="sidebar-btn-texts">
+                                <span class="sidebar-btn-title">Câmera FPV & Stream</span>
+                                <span class="sidebar-btn-sub">Fontes de vídeo, resolução e URL</span>
+                            </div>
+                        </button>
+
+                        <button id="btn-open-sensors" class="sidebar-menu-btn">
+                            <span class="sidebar-icon">🧭</span>
+                            <div class="sidebar-btn-texts">
+                                <span class="sidebar-btn-title">Sensores & Giroscópio</span>
+                                <span class="sidebar-btn-sub">Controle por inclinação do celular</span>
+                            </div>
+                        </button>
+
+                        <button id="btn-open-diag" class="sidebar-menu-btn">
+                            <span class="sidebar-icon">📶</span>
+                            <div class="sidebar-btn-texts">
+                                <span class="sidebar-btn-title">Diagnóstico de Link</span>
+                                <span class="sidebar-btn-sub">Latência RTT, perda de pacotes e taxas</span>
+                            </div>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Seção 2: Câmera em Tela Cheia / Fundo & Gravação -->
+                <div class="sidebar-group">
+                    <span class="sidebar-group-title">CÂMERA FPV EM FUNDO & GRAVAÇÃO</span>
+                    <div class="sidebar-card">
+                        <div style="display:flex; gap:8px;">
+                            <button id="sidebar-btn-cam-bg" class="btn-primary" style="flex:1; font-size:0.75rem; padding:8px 10px;">
+                                📹 Ativar Câmera Fundo
+                            </button>
+                            <button id="sidebar-btn-rec" class="btn-primary btn-record" style="flex:1; font-size:0.75rem; padding:8px 10px; background:var(--accent-red); color:#fff;">
+                                🔴 Gravar Vídeo
+                            </button>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px;">
+                            <span style="font-size:0.72rem; color:var(--text-secondary);">Status da Gravação:</span>
+                            <span id="sidebar-rec-status" style="font-size:0.72rem; color:var(--accent-cyan); font-weight:bold;">Inativo</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Seção 3: Transparência dos Controles -->
+                <div class="sidebar-group">
+                    <span class="sidebar-group-title">TRANSPARÊNCIA DOS CONTROLES</span>
+                    <div class="sidebar-card">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <span style="font-size:0.75rem; color:var(--text-primary);">Opacidade dos Controles:</span>
+                            <span id="val-controls-opacity" style="font-size:0.85rem; font-weight:bold; color:var(--accent-cyan); font-family:monospace;">85%</span>
+                        </div>
+                        <input type="range" id="slider-controls-opacity" class="custom-slider" min="15" max="100" value="85" style="width:100%; margin:8px 0;">
+                        <div class="opacity-presets-row">
+                            <button class="btn-opacity-chip" data-opacity="30">30% Suave</button>
+                            <button class="btn-opacity-chip" data-opacity="60">60% Médio</button>
+                            <button class="btn-opacity-chip" data-opacity="85">85% Padrão</button>
+                            <button class="btn-opacity-chip" data-opacity="100">100% Sólido</button>
+                        </div>
+                        <span style="font-size:0.68rem; color:var(--text-secondary); display:block; margin-top:6px; line-height:1.3;">
+                            Ajusta a visibilidade dos joysticks e botões quando a câmera estiver ativa em tela cheia de fundo.
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- UNIVERSAL VEHICLE TELEMETRY BAR (ACTIVE FOR ALL MODES) -->
+        <div id="universal-telemetry-bar" class="universal-telemetry-bar">
+            <div class="telem-bar-item">
+                <span class="telem-battery-pill" id="telem-bar-battery-pill">
+                    <span>🔋</span>
+                    <span id="bar-telem-volt">--.-V</span>
+                    <span id="bar-telem-pct">(--%)</span>
+                </span>
+            </div>
+            <div class="telem-bar-item">
+                <span>🛰️ GPS:</span>
+                <span id="bar-telem-sats" class="telem-bar-val">0 Sats (No Fix)</span>
+            </div>
+            <div class="telem-bar-item">
+                <span>⚡ Vel:</span>
+                <span id="bar-telem-speed" class="telem-bar-val">0 km/h</span>
+            </div>
+            <div class="telem-bar-item">
+                <span>📏 Alt:</span>
+                <span id="bar-telem-alt" class="telem-bar-val">0 m</span>
+            </div>
+            <div class="telem-bar-item">
+                <span>📶 Link:</span>
+                <span id="bar-telem-rssi" class="telem-bar-val">-- dBm</span>
+                <span id="bar-telem-lq" style="color:var(--accent-cyan); font-weight:bold;">(0% LQ)</span>
+            </div>
+            <div class="telem-bar-item">
+                <span id="bar-telem-alert" class="telem-alert-pill">SISTEMA PRONTO</span>
+            </div>
+            <div style="margin-left:auto; display:flex; gap:6px;">
+                <button id="btn-toggle-diag-hud" class="icon-btn-sm" style="font-size:0.7rem; padding:2px 8px;" title="Alternar Mini HUD de Diagnóstico">📶 HUD</button>
+                <button id="btn-open-pfd-quick" class="icon-btn-sm" style="font-size:0.7rem; padding:2px 8px; color:var(--accent-cyan); font-weight:bold;" title="Abrir Painel de Voo Completo">🎛️ Painel</button>
+            </div>
+        </div>
+
+        <!-- FLOATING / OVERLAY CONNECTION DIAGNOSTICS HUD (ALL MODES) -->
+        <div id="diag-floating-hud" class="diag-floating-hud">
+            <div class="diag-hud-header">
+                <span>📶 DIAGNÓSTICO DO LINK</span>
+                <div class="diag-hud-actions">
+                    <button id="btn-diag-min-toggle" class="icon-btn-sm" style="padding:1px 5px;" title="Minimizar">_</button>
+                    <button id="btn-diag-hud-close" class="icon-btn-sm" style="padding:1px 5px;" title="Fechar">✕</button>
+                </div>
+            </div>
+            <div class="diag-hud-body">
+                <div class="diag-hud-row">
+                    <span class="diag-hud-label">Latência (RTT):</span>
+                    <span id="hud-diag-ping" class="diag-hud-val diag-val-good">-- ms</span>
+                </div>
+                <div class="diag-quality-bar">
+                    <div id="hud-diag-ping-bar" class="diag-quality-fill"></div>
+                </div>
+                <div class="diag-hud-row" style="margin-top:3px;">
+                    <span class="diag-hud-label">Perda Pacotes:</span>
+                    <span id="hud-diag-loss" class="diag-hud-val diag-val-good">0.0%</span>
+                </div>
+                <div class="diag-hud-row">
+                    <span class="diag-hud-label">Taxa Tx:</span>
+                    <span id="hud-diag-rate" class="diag-hud-val">20.0 Hz (0.0 kB/s)</span>
+                </div>
+                <div class="diag-hud-row">
+                    <span class="diag-hud-label">Estado:</span>
+                    <span id="hud-diag-status" class="diag-hud-val" style="color:var(--accent-red)">Desconectado</span>
+                </div>
+                <div class="diag-hud-row">
+                    <span class="diag-hud-label">Erros de Com.:</span>
+                    <span id="hud-diag-errors" class="diag-hud-val" style="color:var(--text-secondary)">0</span>
+                </div>
+                <div style="display:flex; justify-content:space-between; margin-top:4px;">
+                    <button id="btn-diag-ping-now" class="btn-secondary" style="font-size:0.65rem; padding:2px 8px;">Ping Agora</button>
+                    <button id="btn-diag-details" class="btn-primary" style="font-size:0.65rem; padding:2px 8px;">Detalhes</button>
+                </div>
+            </div>
+        </div>
 
         <!-- MAIN VIEWPORT -->
         <main id="main-viewport">
 
             <!-- FPV CAMERA VIEWER (PiP / Background Overlay) -->
             <div id="fpv-camera-container" class="fpv-container" style="display: none;">
+                <!-- Floating Recording Indicator -->
+                <div id="fpv-recording-indicator" class="fpv-rec-indicator" style="display: none;">
+                    <span class="rec-dot">●</span> REC <span id="fpv-rec-timer">00:00</span>
+                </div>
+
                 <div class="fpv-header">
                     <span class="fpv-title">📹 Câmera FPV <span id="fpv-status-badge" class="fpv-badge">OFF</span></span>
                     <div class="fpv-header-btns">
+                        <button id="btn-fpv-record" class="icon-btn-sm btn-record" title="Gravar Vídeo FPV">🔴 REC</button>
                         <button id="btn-fpv-mode" class="icon-btn-sm" title="Alternar Modo PiP / Fundo">🔲 Fundo</button>
                         <button id="btn-fpv-flip" class="icon-btn-sm" title="Espelhar Imagem">🔄 Flip</button>
                         <button id="btn-fpv-snapshot" class="icon-btn-sm" title="Capturar Foto">📸</button>
@@ -749,7 +929,7 @@
         <div id="modal-edit" class="modal-overlay">
             <div class="modal-card">
                 <div class="modal-header">
-                    <span>✏️ Personalizar Botões e Controles</span>
+                    <span>🎨 Personalizar Layout Personalizado</span>
                     <button class="icon-btn close-modal">✕</button>
                 </div>
                 <div class="modal-body" id="layout-editor-body">
@@ -875,6 +1055,72 @@
                         </div>
                     </div>
 
+                    <!-- BOTÃO E SEÇÃO: CONFIGURAR CONTROLE POR SENSOR NO ELEMENTO -->
+                    <div style="margin-top: 14px; border-top: 1px solid var(--border-color); padding-top: 12px;">
+                        <button type="button" id="btn-toggle-new-sensor" class="btn-secondary" style="width: 100%; display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: rgba(0, 229, 255, 0.06); border: 1px dashed var(--accent-cyan); border-radius: 8px; cursor: pointer;">
+                            <span style="font-size: 0.88rem; font-weight: 600; color: var(--accent-cyan);">🧭 Configurar Uso do Sensor (Giroscópio / Tilt)</span>
+                            <span id="badge-new-sensor-status" style="font-size: 0.72rem; padding: 2px 8px; border-radius: 10px; background: rgba(255,255,255,0.1); color: var(--text-secondary);">Desativado</span>
+                        </button>
+
+                        <div id="section-new-sensor-config" style="display: none; background: var(--bg-surface-elevated); padding: 12px; border-radius: 8px; border: 1px solid var(--border-color); margin-top: 10px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.06);">
+                                <label for="new-el-use-sensor" style="font-weight: 600; color: #fff; cursor: pointer; margin: 0; font-size: 0.88rem;">Ativar Sensor neste elemento:</label>
+                                <input type="checkbox" id="new-el-use-sensor" style="width: 20px; height: 20px; cursor: pointer;">
+                            </div>
+
+                            <div class="form-row">
+                                <div class="form-group" style="flex: 1;">
+                                    <label>Eixo de Entrada:</label>
+                                    <select id="new-el-sensor-axis" class="form-control">
+                                        <option value="auto" selected>Automático (Roll=X / Pitch=Y)</option>
+                                        <option value="roll">Roll (Inclinação Esq/Dir)</option>
+                                        <option value="pitch">Pitch (Inclinação Frente/Trás)</option>
+                                        <option value="yaw">Yaw (Giro / Bússola)</option>
+                                        <option value="ax">Aceleração X (Linear)</option>
+                                        <option value="ay">Aceleração Y (Linear)</option>
+                                        <option value="az">Aceleração Z (Linear)</option>
+                                    </select>
+                                </div>
+                                <div class="form-group" style="flex: 1;">
+                                    <label>Sensibilidade / Ganho:</label>
+                                    <select id="new-el-sensor-sens" class="form-control">
+                                        <option value="0.5">0.5x (Suave)</option>
+                                        <option value="1.0" selected>1.0x (Padrão)</option>
+                                        <option value="1.5">1.5x (Rápido)</option>
+                                        <option value="2.0">2.0x (Agressivo)</option>
+                                        <option value="3.0">3.0x (Ultra)</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="form-group" style="flex: 1;">
+                                    <label>Zona Morta (Deadzone):</label>
+                                    <select id="new-el-sensor-dead" class="form-control">
+                                        <option value="0">0° (Sem Zona Morta)</option>
+                                        <option value="2">2° (Mínima)</option>
+                                        <option value="5" selected>5° (Recomendada)</option>
+                                        <option value="10">10° (Ampla)</option>
+                                    </select>
+                                </div>
+                                <div class="form-group" style="flex: 1;">
+                                    <label>Curva de Resposta:</label>
+                                    <select id="new-el-sensor-curve" class="form-control">
+                                        <option value="linear" selected>Linear (Direta)</option>
+                                        <option value="expo">Exponencial (Centro suave)</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="form-row" style="margin-top: 4px;">
+                                <div class="form-group" style="flex: 1; display: flex; align-items: center; gap: 8px;">
+                                    <input type="checkbox" id="new-el-sensor-inv" style="width: 18px; height: 18px; cursor: pointer;">
+                                    <label for="new-el-sensor-inv" style="margin: 0; cursor: pointer;">Inverter Polaridade / Direção</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                 </div>
                 <div class="modal-footer">
                     <button class="btn-secondary close-modal">Cancelar</button>
@@ -969,15 +1215,15 @@
                             <input type="checkbox" id="sensor-enable-toggle" style="width: 20px; height: 20px; cursor: pointer;">
                         </div>
                         <small style="color: var(--text-secondary); display: block; margin-top: 4px;">
-                            Permite pilotar o carrinho ou movimentar servos inclinando o smartphone.
+                            Pilote qualquer modelo inclinando o smartphone (Carro RC, Tanque/Esteiras, Drone, Aeromodelo, Gimbal ou Layout Personalizado).
                         </small>
                     </div>
 
                     <div class="form-group">
                         <label>Modo de Ação dos Sensores:</label>
                         <select id="sensor-mode-select" class="form-control">
-                            <option value="drive" selected>🚗 Volante & Acelerador (Roll = Direção, Pitch = Velocidade)</option>
-                            <option value="steering_only">🔄 Somente Volante / Direção (Roll = Direção, Acelerador no Touch)</option>
+                            <option value="drive" selected>🎮 Controle Dinâmico Completo (Carro, Tanque, Drone, Aero, Gimbal)</option>
+                            <option value="steering_only">🔄 Somente Direção / Roll (Acelerador / Throttle no Touch manual)</option>
                             <option value="gimbal">📹 Câmera / Gimbal 2-Eixos (Pan & Tilt via Inclinação)</option>
                             <option value="stream_only">📡 Telemetria Pura (Envia leituras TILT/GYRO ao microcontrolador)</option>
                         </select>
@@ -1042,12 +1288,316 @@
             </div>
         </div>
 
+        <!-- MODAL: DIAGNÓSTICO DE CONEXÃO -->
+        <div id="modal-diag" class="modal-overlay">
+            <div class="modal-card">
+                <div class="modal-header">
+                    <span>📶 Diagnóstico da Conexão & Estatísticas de Rede</span>
+                    <button class="icon-btn close-modal">✕</button>
+                </div>
+                <div class="modal-body">
+                    <div class="tab-bar">
+                        <button class="tab-btn active" data-tab="tab-diag-stats">Métricas em Tempo Real</button>
+                        <button class="tab-btn" data-tab="tab-diag-config">Configurações do Diagnóstico</button>
+                    </div>
+
+                    <!-- TAB: METRICAS -->
+                    <div id="tab-diag-stats" class="tab-content">
+                        <div class="diag-stats-grid">
+                            <div class="diag-stat-card">
+                                <span class="diag-stat-title">Latência RTT (Ping)</span>
+                                <span id="diag-detail-rtt" class="diag-stat-big diag-val-good">-- ms</span>
+                                <span id="diag-detail-rtt-sub" class="diag-stat-sub">Mín: -- | Média: -- | Máx: --</span>
+                            </div>
+                            <div class="diag-stat-card">
+                                <span class="diag-stat-title">Perda de Pacotes</span>
+                                <span id="diag-detail-loss" class="diag-stat-big diag-val-good">0.0%</span>
+                                <span id="diag-detail-loss-sub" class="diag-stat-sub">Perdidos: 0 / Enviados: 0</span>
+                            </div>
+                            <div class="diag-stat-card">
+                                <span class="diag-stat-title">Taxa de Envio (Loop)</span>
+                                <span id="diag-detail-rate" class="diag-stat-big">20.0 Hz</span>
+                                <span id="diag-detail-throughput" class="diag-stat-sub">Tx: 0.0 kB/s | Rx: 0.0 kB/s</span>
+                            </div>
+                            <div class="diag-stat-card">
+                                <span class="diag-stat-title">Estado do Transporte</span>
+                                <span id="diag-detail-status" class="diag-stat-big" style="font-size:1.0rem; color:var(--accent-red);">Desconectado</span>
+                                <span id="diag-detail-endpoint" class="diag-stat-sub">Nenhum canal ativo</span>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <div style="display:flex; justify-content:space-between; align-items:center;">
+                                <label>Registro de Erros de Comunicação (<span id="diag-error-count">0</span> falhas):</label>
+                                <button id="btn-diag-clear-errors" class="icon-btn-sm" style="font-size:0.7rem;">Limpar</button>
+                            </div>
+                            <div id="diag-log-container" class="diag-log-box">
+                                <div style="color:var(--accent-green);">✓ Nenhuma falha de comunicação registrada. Link estável.</div>
+                            </div>
+                        </div>
+
+                        <div style="display:flex; gap:10px; margin-top:8px;">
+                            <button id="btn-diag-manual-ping" class="btn-primary" style="flex:1;">⚡ Enviar Ping Probe Imediato</button>
+                            <button id="btn-diag-reset-stats" class="btn-secondary" style="flex:1; color:var(--accent-amber);">🔄 Zerar Estatísticas</button>
+                        </div>
+                    </div>
+
+                    <!-- TAB: CONFIGURAÇÕES -->
+                    <div id="tab-diag-config" class="tab-content" style="display:none;">
+                        <div class="form-group">
+                            <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                                <input type="checkbox" id="diag-cfg-show-hud" checked style="width:18px; height:18px;">
+                                <span>Exibir HUD Flutuante de Diagnóstico em Todos os Modos (Carro, Tanque, Drones, etc.)</span>
+                            </label>
+                            <small style="color:var(--text-secondary); display:block; margin-top:4px;">
+                                Mostra um mini painel translúcido no canto da tela com latência, perda e taxa de envio ao pilotar qualquer veículo.
+                            </small>
+                        </div>
+
+                        <div class="form-group">
+                            <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                                <input type="checkbox" id="diag-cfg-ping-probe" checked style="width:18px; height:18px;">
+                                <span>Habilitar Ping Probe Ativo (Mede Latência RTT Real via Echo / Heartbeat)</span>
+                            </label>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group" style="flex:1;">
+                                <label>Intervalo do Ping Probe:</label>
+                                <select id="diag-cfg-ping-interval" class="form-control">
+                                    <option value="500">500 ms (Alta Precisão)</option>
+                                    <option value="1000" selected>1.0 s (Padrão Recomendado)</option>
+                                    <option value="2000">2.0 s (Econômico)</option>
+                                    <option value="5000">5.0 s (Baixo Tráfego)</option>
+                                </select>
+                            </div>
+                            <div class="form-group" style="flex:1;">
+                                <label>Alerta de Latência Alta (ms):</label>
+                                <input type="number" id="diag-cfg-lat-thresh" class="form-control" value="120" min="20" max="1000">
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Alerta de Perda de Pacotes (%):</label>
+                            <input type="number" id="diag-cfg-loss-thresh" class="form-control" value="5" min="1" max="50">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn-secondary close-modal">Fechar</button>
+                    <button id="btn-save-diag-cfg" class="btn-primary">Salvar Configurações</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODAL: TELEMETRIA & PAINEL DE VOO COMPLETO -->
+        <div id="modal-telem" class="modal-overlay">
+            <div class="modal-card" style="max-width: 650px;">
+                <div class="modal-header">
+                    <span>🛰️ Telemetria & Painel de Voo Avançado</span>
+                    <button class="icon-btn close-modal">✕</button>
+                </div>
+                <div class="modal-body">
+                    <div class="tab-bar">
+                        <button class="tab-btn active" data-tab="tab-telem-cockpit">Painel de Voo (Cockpit / PFD)</button>
+                        <button class="tab-btn" data-tab="tab-telem-config">Configuração de Protocolo</button>
+                    </div>
+
+                    <!-- TAB: COCKPIT / PFD -->
+                    <div id="tab-telem-cockpit" class="tab-content">
+                        <!-- Artificial Horizon Canvas -->
+                        <div class="pfd-hud-canvas-wrap" style="height: 140px;">
+                            <canvas id="pfd-horizon-modal" class="pfd-horizon-canvas" width="600" height="140"></canvas>
+                        </div>
+
+                        <!-- Full Telemetry Gauges Grid -->
+                        <div class="diag-stats-grid" style="margin-top: 10px;">
+                            <div class="diag-stat-card">
+                                <span class="diag-stat-title">🔋 Bateria & Alimentação</span>
+                                <span id="telem-modal-bat-volt" class="diag-stat-big" style="color:var(--accent-green);">--.- V</span>
+                                <span id="telem-modal-bat-sub" class="diag-stat-sub">0% | Consumo: 0 mAh | 0.0 A</span>
+                            </div>
+                            <div class="diag-stat-card">
+                                <span class="diag-stat-title">🛰️ GPS & Navegação</span>
+                                <span id="telem-modal-gps-fix" class="diag-stat-big" style="color:var(--accent-cyan); font-size:1.15rem;">No Fix (0 Sats)</span>
+                                <span id="telem-modal-gps-coords" class="diag-stat-sub">Lat: 0.000000 | Lon: 0.000000</span>
+                            </div>
+                            <div class="diag-stat-card">
+                                <span class="diag-stat-title">✈️ Voo: Altitude & Velocidade</span>
+                                <span id="telem-modal-flight-nums" class="diag-stat-big" style="font-size:1.2rem;">0 m | 0 km/h</span>
+                                <span id="telem-modal-flight-sub" class="diag-stat-sub">Vario: 0.0 m/s | Rumo: 000°</span>
+                            </div>
+                            <div class="diag-stat-card">
+                                <span class="diag-stat-title">📶 Qualidade do Link & Sinal</span>
+                                <span id="telem-modal-link-rssi" class="diag-stat-big" style="color:var(--accent-cyan);">-- dBm</span>
+                                <span id="telem-modal-link-sub" class="diag-stat-sub">Link Quality: 0% LQ | SNR: 0 dB</span>
+                            </div>
+                        </div>
+
+                        <!-- Active Alerts Banner -->
+                        <div id="telem-modal-alert-box" class="pfd-alert-banner" style="display:none; margin-top:8px;">
+                            <span id="telem-modal-alert-text">⚠️ ALERTA: NENHUM DADO RECEBIDO</span>
+                            <span id="telem-modal-alert-time" style="font-size:0.65rem; color:rgba(255,255,255,0.7);">--:--:--</span>
+                        </div>
+
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:10px;">
+                            <span id="telem-modal-proto-label" style="font-size:0.75rem; color:var(--accent-cyan);">Protocolo Ativo: Auto-Detect</span>
+                            <button id="btn-telem-simulate-test" class="btn-primary" style="font-size:0.75rem; padding:4px 12px; background:var(--accent-amber); color:#000;">
+                                ⚡ Simular Recepção de Dados (Teste)
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- TAB: CONFIGURAÇÃO DE PROTOCOLO -->
+                    <div id="tab-telem-config" class="tab-content" style="display:none;">
+                        <div class="form-group">
+                            <label>Protocolo para Interpretação dos Dados de Telemetria:</label>
+                            <select id="telem-cfg-decoder" class="form-control">
+                                <option value="AUTO" selected>AUTO-DETECT (Automático - JSON, Delimitado, CRSF, MAVLink, MSP)</option>
+                                <option value="JSON">JSON Telemetry (ESP32 / Raspberry Pi / WebSockets)</option>
+                                <option value="DELIMITED">Delimitado CSV / Key-Value (Arduino / HC-05 / ESP8266: BAT:x,ALT:y)</option>
+                                <option value="CRSF">CRSF / ExpressLRS / Crossfire (Frames 0x08, 0x14, 0x02, 0x07, 0x21)</option>
+                                <option value="MAVLINK">MAVLink v1/v2 (ArduPilot / Pixhawk Telemetry #0, #1, #24, #74)</option>
+                                <option value="MSP">MSP (Betaflight / INAV Telemetry MSP_ANALOG, MSP_RAW_GPS)</option>
+                            </select>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group" style="flex:1;">
+                                <label>Alerta de Bateria Baixa (V):</label>
+                                <input type="number" step="0.1" id="telem-cfg-bat-warn" class="form-control" value="10.8">
+                            </div>
+                            <div class="form-group" style="flex:1;">
+                                <label>Alerta de Bateria Crítica (V):</label>
+                                <input type="number" step="0.1" id="telem-cfg-bat-crit" class="form-control" value="10.2">
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group" style="flex:1;">
+                                <label>Alerta de Sinal RSSI Fraco (dBm):</label>
+                                <input type="number" id="telem-cfg-rssi-warn" class="form-control" value="-85">
+                            </div>
+                            <div class="form-group" style="flex:1;">
+                                <label>Alerta de Link Quality Baixa (% LQ):</label>
+                                <input type="number" id="telem-cfg-lq-warn" class="form-control" value="70">
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                                <input type="checkbox" id="telem-cfg-audio-alerts" checked style="width:18px; height:18px;">
+                                <span>Alertas Sonoros no Celular (Beeps de Bateria Fraca, Perda de Sinal, Failsafe)</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn-secondary close-modal">Fechar</button>
+                    <button id="btn-save-telem-cfg" class="btn-primary">Salvar Protocolo de Telemetria</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODAL: PERFIS EXPORTÁVEIS E IMPORTÁVEIS -->
+        <div id="modal-profiles" class="modal-overlay">
+            <div class="modal-card" style="max-width: 680px;">
+                <div class="modal-header">
+                    <span>📁 Perfis de Veículos, Controles & Layouts</span>
+                    <button class="icon-btn close-modal">✕</button>
+                </div>
+                <div class="modal-body">
+                    <div class="tab-bar">
+                        <button class="tab-btn active" data-tab="tab-profiles-list">Modelos & Salvos</button>
+                        <button class="tab-btn" data-tab="tab-profiles-save">Salvar Configuração Atual</button>
+                        <button class="tab-btn" data-tab="tab-profiles-import">Importar / Compartilhar</button>
+                    </div>
+
+                    <!-- TAB 1: LISTA DE PERFIS -->
+                    <div id="tab-profiles-list" class="tab-content">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                            <span style="font-size:0.75rem; color:var(--text-secondary);">Selecione um perfil pronto de fábrica ou carregue seus veículos salvos:</span>
+                            <span id="profiles-count-badge" class="badge" style="font-size:0.75rem; background:var(--bg-surface-elevated); padding:3px 8px; border-radius:6px; border:1px solid var(--border-color); color:var(--accent-cyan);">7 modelos</span>
+                        </div>
+                        <div id="profiles-container" class="profiles-list-grid">
+                            <!-- Dynamic Profiles populated via JS -->
+                        </div>
+                    </div>
+
+                    <!-- TAB 2: SALVAR PERFIL ATUAL -->
+                    <div id="tab-profiles-save" class="tab-content" style="display:none;">
+                        <p style="font-size:0.8rem; color:var(--text-secondary); margin-bottom:12px;">
+                            Gera um pacote completo contendo o layout de tela ativo, mapeamento de controles, sensibilidades, trims, protocolo e parâmetros de telemetria.
+                        </p>
+                        <div class="form-group">
+                            <label>Nome do Veículo / Projeto:</label>
+                            <input type="text" id="prof-save-name" class="form-control" placeholder="Ex: Meu Drone 7'' Long Range ou Crawler 4x4 Offroad">
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group" style="flex:1;">
+                                <label>Categoria do Veículo:</label>
+                                <select id="prof-save-type" class="form-control">
+                                    <option value="drone">🚁 Drone / Multirrotor</option>
+                                    <option value="car" selected>🏎️ Carro RC / Rover</option>
+                                    <option value="tank">🛡️ Tanque de Esteira</option>
+                                    <option value="plane">✈️ Avião / Asa Fixa</option>
+                                    <option value="heli">🚁 Helicóptero RC</option>
+                                    <option value="robot_arm">🦾 Braço Robótico / Servos</option>
+                                    <option value="custom">🎨 Personalizado / Experimental</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Descrição & Observações do Projeto:</label>
+                            <textarea id="prof-save-desc" class="form-control" rows="3" placeholder="Ex: ESP32 com Wi-Fi UDP na porta 8888, ponte H L298N, bateria 3S LiPo com alarme em 10.8V."></textarea>
+                        </div>
+                        <div class="diag-stat-card" style="margin-top:10px; background:rgba(0,229,255,0.05); border:1px solid rgba(0,229,255,0.2);">
+                            <span class="diag-stat-title" style="color:var(--accent-cyan);">Resumo do Snapshot Atual:</span>
+                            <span id="prof-save-summary" class="diag-stat-sub" style="font-size:0.75rem; color:var(--text-primary);">
+                                Layout: Carro RC | Protocolo: DELIMITED | Taxa: 50Hz | Telemetria: AUTO
+                            </span>
+                        </div>
+                        <div style="margin-top:14px; text-align:right;">
+                            <button id="btn-confirm-save-profile" class="btn-primary" style="padding:8px 16px;">💾 Salvar Novo Perfil</button>
+                        </div>
+                    </div>
+
+                    <!-- TAB 3: IMPORTAR PERFIL -->
+                    <div id="tab-profiles-import" class="tab-content" style="display:none;">
+                        <p style="font-size:0.8rem; color:var(--text-secondary); margin-bottom:12px;">
+                            Importe configurações compartilhadas por amigos, grupos ou salvas no seu computador/celular.
+                        </p>
+                        <div style="background:var(--bg-surface-elevated); border:2px dashed var(--border-color); border-radius:10px; padding:16px; text-align:center; margin-bottom:14px;">
+                            <span style="font-size:1.8rem; display:block; margin-bottom:6px;">📥</span>
+                            <span style="font-weight:600; display:block; margin-bottom:8px;">Importar Arquivo (.json)</span>
+                            <input type="file" id="prof-file-input" accept=".json,application/json" style="display:none;">
+                            <button id="btn-trigger-file-import" class="btn-secondary" style="font-size:0.8rem; padding:6px 14px;">📂 Selecionar Arquivo do Dispositivo</button>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Ou cole o Código JSON do Perfil (WhatsApp / Discord / Web):</label>
+                            <textarea id="prof-import-text" class="form-control" rows="5" placeholder='Cole aqui o JSON iniciando com {"version":"2.0", ...}'></textarea>
+                        </div>
+
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:10px;">
+                            <span id="prof-import-status" style="font-size:0.75rem; color:var(--text-secondary);">Pronto para importar.</span>
+                            <button id="btn-confirm-import-text" class="btn-primary" style="padding:8px 16px;">📥 Importar do Texto</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn-secondary close-modal">Fechar</button>
+                </div>
+            </div>
+        </div>
+
     </div>
 
     <!-- SCRIPTS -->
     <script src="js/protocol.js"></script>
     <script src="js/joystick.js"></script>
     <script src="js/layouts.js"></script>
+    <script src="js/profiles.js"></script>
     <script src="js/app.js"></script>
 </body>
 </html>

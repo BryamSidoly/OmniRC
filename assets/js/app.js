@@ -2,6 +2,42 @@
  * OmniRC Master Application Controller
  */
 document.addEventListener('DOMContentLoaded', () => {
+    // ==========================================
+    // MENU LATERAL (SIDEBAR DRAWER) CONTROLLER
+    // ==========================================
+    const sidebarDrawer = document.getElementById('sidebar-drawer');
+    const sidebarBackdrop = document.getElementById('sidebar-backdrop');
+    const btnOpenSidebar = document.getElementById('btn-open-sidebar');
+    const btnCloseSidebar = document.getElementById('btn-close-sidebar');
+
+    const openSidebar = () => {
+        if (sidebarDrawer) sidebarDrawer.classList.add('active');
+        if (sidebarBackdrop) sidebarBackdrop.classList.add('active');
+        triggerHaptic(15);
+        playBeep(900, 0.03);
+    };
+
+    const closeSidebar = () => {
+        if (sidebarDrawer) sidebarDrawer.classList.remove('active');
+        if (sidebarBackdrop) sidebarBackdrop.classList.remove('active');
+    };
+
+    if (btnOpenSidebar) btnOpenSidebar.addEventListener('click', openSidebar);
+    if (btnCloseSidebar) btnCloseSidebar.addEventListener('click', closeSidebar);
+    if (sidebarBackdrop) sidebarBackdrop.addEventListener('click', closeSidebar);
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') closeSidebar();
+    });
+
+    // When clicking any modal button inside the sidebar, auto-close the drawer
+    if (sidebarDrawer) {
+        sidebarDrawer.querySelectorAll('.sidebar-menu-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                closeSidebar();
+            });
+        });
+    }
+
     // State variables
     let currentConnection = {
         type: 'NONE', // 'WIFI_UDP', 'WIFI_TCP', 'BT_CLASSIC', 'BT_BLE'
@@ -88,6 +124,8 @@ document.addEventListener('DOMContentLoaded', () => {
             navigator.vibrate(duration);
         }
     }
+    window.playBeep = playBeep;
+    window.triggerHaptic = triggerHaptic;
 
     // ==========================================
     // TRANSMISSION LOOP
@@ -95,6 +133,16 @@ document.addEventListener('DOMContentLoaded', () => {
     function sendPacket(rawString, isHex = false) {
         if (window.Android && window.Android.sendPacket) {
             window.Android.sendPacket(rawString, isHex);
+        } else {
+            // Simulator browser mode
+            fetch('/api/send_packet', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ data: rawString, isHex: isHex })
+            }).catch(e => {});
+        }
+        if (window.DiagnosticManager) {
+            window.DiagnosticManager.onPacketSent(rawString ? rawString.length : 0);
         }
         logTerminal(rawString, 'tx');
     }
@@ -600,6 +648,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // RENDER ACTIVE LAYOUT & BUTTONS
     // ==========================================
     function renderLayout(layoutId) {
+        window.renderLayout = renderLayout;
         document.querySelectorAll('.layout-container').forEach(el => el.classList.remove('active'));
         const targetView = document.getElementById(`view-${layoutId}`);
         if (targetView) targetView.classList.add('active');
@@ -1042,8 +1091,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 const header = document.createElement('div');
                 header.classList.add('builder-item-header');
+                const hasSensorJoy = item.sensor && item.sensor.enabled;
                 header.innerHTML = `
-                    <span>🕹️ ${item.label || 'Joystick'}</span>
+                    <div style="display:flex; align-items:center; gap:6px;">
+                        <span>🕹️ ${item.label || 'Joystick'}</span>
+                        ${hasSensorJoy ? '<span style="font-size:0.65rem; background:rgba(0,229,255,0.15); color:var(--accent-cyan); border:1px solid var(--accent-cyan); padding:1px 5px; border-radius:4px; font-weight:600;">🧭 SENSOR</span>' : ''}
+                    </div>
                     <span class="telemetry-val" id="telemetry-${item.id}">X:0 Y:0</span>
                 `;
                 card.appendChild(header);
@@ -1090,8 +1143,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 const header = document.createElement('div');
                 header.classList.add('builder-item-header');
+                const hasSensorSl = item.sensor && item.sensor.enabled;
                 header.innerHTML = `
-                    <span>🎚️ ${item.label || 'Slider'}</span>
+                    <div style="display:flex; align-items:center; gap:6px;">
+                        <span>🎚️ ${item.label || 'Slider'}</span>
+                        ${hasSensorSl ? '<span style="font-size:0.65rem; background:rgba(0,229,255,0.15); color:var(--accent-cyan); border:1px solid var(--accent-cyan); padding:1px 5px; border-radius:4px; font-weight:600;">🧭 SENSOR</span>' : ''}
+                    </div>
                     <span class="telemetry-val" id="telemetry-${item.id}">${item.value !== undefined ? item.value : (item.min || 0)}</span>
                 `;
                 card.appendChild(header);
@@ -1363,26 +1420,9 @@ document.addEventListener('DOMContentLoaded', () => {
     renderLayout('rc_car');
 
     // ==========================================
-    // MODALS SETUP HELPER
+    // MODALS SETUP HELPER & GLOBAL CLOSE HANDLER
     // ==========================================
-    function setupModal(triggerBtnId, modalId, onOpen) {
-        const btn = document.getElementById(triggerBtnId);
-        const modal = document.getElementById(modalId);
-        if (!btn || !modal) {
-            console.warn(`Modal element missing: ${triggerBtnId} or ${modalId}`);
-            return;
-        }
-
-        const openHandler = (e) => {
-            if (e) e.preventDefault();
-            modal.classList.add('active');
-            if (typeof onOpen === 'function') onOpen();
-            triggerHaptic(20);
-            playBeep(800, 0.03);
-        };
-
-        btn.addEventListener('click', openHandler);
-
+    document.querySelectorAll('.modal-overlay').forEach(modal => {
         modal.querySelectorAll('.close-modal').forEach(c => {
             c.addEventListener('click', (e) => {
                 if (e) e.preventDefault();
@@ -1390,6 +1430,28 @@ document.addEventListener('DOMContentLoaded', () => {
                 triggerHaptic(15);
             });
         });
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                modal.classList.remove('active');
+                triggerHaptic(15);
+            }
+        });
+    });
+
+    function setupModal(triggerBtnId, modalId, onOpen) {
+        const btn = document.getElementById(triggerBtnId);
+        const modal = document.getElementById(modalId);
+        if (!modal) return;
+
+        if (btn) {
+            btn.addEventListener('click', (e) => {
+                if (e) e.preventDefault();
+                modal.classList.add('active');
+                if (typeof onOpen === 'function') onOpen();
+                triggerHaptic(20);
+                playBeep(800, 0.03);
+            });
+        }
     }
 
     // ==========================================
@@ -1508,41 +1570,35 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // ==========================================
-    // 3. MODAL EDITOR DE LAYOUT
+    // 3. MODAL EDITOR DE LAYOUT (EXCLUSIVO PARA LAYOUT PERSONALIZADO)
     // ==========================================
-    setupModal('btn-open-edit', 'modal-edit', () => {
-        populateLayoutEditor();
-    });
-
     function populateLayoutEditor() {
         const body = document.getElementById('layout-editor-body');
         if (!body) return;
         body.innerHTML = '';
 
-        const layout = LayoutManager.getCurrent();
-        if (!layout) {
-            body.innerHTML = '<div style="color:var(--text-secondary); padding:8px;">Nenhum layout carregado.</div>';
-            return;
+        if (!LayoutManager.layouts || !LayoutManager.layouts.custom_matrix) {
+            LayoutManager.layouts = LayoutManager.layouts || {};
+            LayoutManager.layouts.custom_matrix = JSON.parse(JSON.stringify(LayoutManager.defaultLayouts.custom_matrix));
         }
+        const layout = LayoutManager.layouts.custom_matrix;
+        if (!Array.isArray(layout.items)) layout.items = [];
 
         const info = document.createElement('div');
-        info.innerHTML = `<strong>${layout.name || 'Layout'}</strong><p style="color:var(--text-secondary); font-size:0.8rem; margin-top:2px;">${layout.description || ''}</p>`;
+        info.innerHTML = `<strong>🎨 Layout Personalizado</strong><p style="color:var(--text-secondary); font-size:0.8rem; margin-top:2px;">Gerencie, ordene e configure os analógicos, sliders e botões deste layout.</p>`;
         body.appendChild(info);
 
-        // Edit Custom Items (when layout has items array)
-        if (layout.items && Array.isArray(layout.items)) {
-            const itemsHeader = document.createElement('div');
-            itemsHeader.innerHTML = '<h4 style="margin-top:12px; margin-bottom:6px; color:var(--accent-cyan); font-size:0.9rem;">Elementos do Layout:</h4>';
-            body.appendChild(itemsHeader);
+        const itemsHeader = document.createElement('div');
+        itemsHeader.innerHTML = '<h4 style="margin-top:12px; margin-bottom:6px; color:var(--accent-cyan); font-size:0.9rem;">Elementos do Layout Personalizado:</h4>';
+        body.appendChild(itemsHeader);
 
-            if (layout.items.length === 0) {
-                const empty = document.createElement('div');
-                empty.style.color = 'var(--text-secondary)';
-                empty.style.padding = '8px';
-                empty.innerText = 'Nenhum elemento adicionado ainda. Clique em "➕ Adicionar Elemento" abaixo.';
-                body.appendChild(empty);
-            }
-
+        if (layout.items.length === 0) {
+            const empty = document.createElement('div');
+            empty.style.color = 'var(--text-secondary)';
+            empty.style.padding = '8px';
+            empty.innerText = 'Nenhum elemento adicionado ainda. Clique em "➕ Adicionar Elemento" abaixo.';
+            body.appendChild(empty);
+        } else {
             layout.items.forEach((item, idx) => {
                 const card = document.createElement('div');
                 card.classList.add('slider-card');
@@ -1615,6 +1671,50 @@ document.addEventListener('DOMContentLoaded', () => {
                     `;
                 }
 
+                let sensorField = '';
+                if (item.type === 'joystick' || item.type === 'slider') {
+                    const isSenEn = item.sensor && item.sensor.enabled;
+                    sensorField = `
+                        <div style="background: rgba(0, 229, 255, 0.04); border: 1px solid rgba(0, 229, 255, 0.18); border-radius: 8px; padding: 10px; margin-top: 10px;">
+                            <div style="display:flex; justify-content:space-between; align-items:center;">
+                                <label style="margin:0; font-size:0.82rem; font-weight:600; color:var(--accent-cyan); display:flex; align-items:center; gap:8px; cursor:pointer;">
+                                    <input type="checkbox" class="ed-item-sensor-en" data-idx="${idx}" ${isSenEn ? 'checked' : ''} style="width:18px; height:18px; cursor:pointer;">
+                                    <span>🧭 Controle por Sensor (Giroscópio / Tilt)</span>
+                                </label>
+                                <span style="font-size:0.7rem; font-weight:600; padding:2px 6px; border-radius:4px; background:${isSenEn ? 'rgba(0,229,255,0.2)' : 'rgba(255,255,255,0.08)'}; color:${isSenEn ? 'var(--accent-cyan)' : 'var(--text-secondary)'};">
+                                    ${isSenEn ? 'ATIVADO' : 'DESLIGADO'}
+                                </span>
+                            </div>
+                            <div class="form-row" style="margin-top:8px;">
+                                <div class="form-group" style="flex:1;">
+                                    <label style="font-size:0.75rem;">Eixo:</label>
+                                    <select class="form-control ed-item-sensor-axis" data-idx="${idx}" style="font-size:0.8rem; height:32px;">
+                                        <option value="auto" ${(!item.sensor || item.sensor.axis === 'auto') ? 'selected' : ''}>Auto (Roll=X / Pitch=Y)</option>
+                                        <option value="roll" ${item.sensor && item.sensor.axis === 'roll' ? 'selected' : ''}>Roll (Esq/Dir)</option>
+                                        <option value="pitch" ${item.sensor && item.sensor.axis === 'pitch' ? 'selected' : ''}>Pitch (Frente/Trás)</option>
+                                        <option value="yaw" ${item.sensor && item.sensor.axis === 'yaw' ? 'selected' : ''}>Yaw (Bússola)</option>
+                                        <option value="ax" ${item.sensor && item.sensor.axis === 'ax' ? 'selected' : ''}>Ax (Linear)</option>
+                                        <option value="ay" ${item.sensor && item.sensor.axis === 'ay' ? 'selected' : ''}>Ay (Linear)</option>
+                                    </select>
+                                </div>
+                                <div class="form-group" style="flex:1;">
+                                    <label style="font-size:0.75rem;">Sensibilidade:</label>
+                                    <select class="form-control ed-item-sensor-sens" data-idx="${idx}" style="font-size:0.8rem; height:32px;">
+                                        <option value="0.5" ${item.sensor && item.sensor.sens === 0.5 ? 'selected' : ''}>0.5x</option>
+                                        <option value="1.0" ${(!item.sensor || item.sensor.sens === 1.0) ? 'selected' : ''}>1.0x</option>
+                                        <option value="1.5" ${item.sensor && item.sensor.sens === 1.5 ? 'selected' : ''}>1.5x</option>
+                                        <option value="2.0" ${item.sensor && item.sensor.sens === 2.0 ? 'selected' : ''}>2.0x</option>
+                                    </select>
+                                </div>
+                                <div class="form-group" style="flex:1; display:flex; align-items:center; gap:6px; margin-top:16px;">
+                                    <input type="checkbox" class="ed-item-sensor-inv" data-idx="${idx}" ${item.sensor && item.sensor.invert ? 'checked' : ''} style="width:16px; height:16px; cursor:pointer;">
+                                    <label style="font-size:0.75rem; margin:0; cursor:pointer;">Inverter</label>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
+
                 card.innerHTML = `
                     <div style="display:flex; justify-content:space-between; align-items:center;">
                         <strong>#${idx + 1} ${typeLabel}</strong>
@@ -1646,6 +1746,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         </div>
                     </div>
                     ${specificFields}
+                    ${sensorField}
                 `;
                 body.appendChild(card);
             });
@@ -1653,9 +1754,10 @@ document.addEventListener('DOMContentLoaded', () => {
             // Bind delete and reorder buttons
             body.querySelectorAll('.ed-item-del').forEach(btn => {
                 btn.addEventListener('click', (e) => {
+                    if (e) e.preventDefault();
                     const idx = parseInt(e.currentTarget.getAttribute('data-idx'));
                     layout.items.splice(idx, 1);
-                    LayoutManager.saveCurrent(layout);
+                    LayoutManager.saveLayout('custom_matrix', layout);
                     populateLayoutEditor();
                     if (LayoutManager.currentLayoutId === 'custom_matrix') {
                         renderLayout('custom_matrix');
@@ -1666,12 +1768,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
             body.querySelectorAll('.ed-item-up').forEach(btn => {
                 btn.addEventListener('click', (e) => {
+                    if (e) e.preventDefault();
                     const idx = parseInt(e.currentTarget.getAttribute('data-idx'));
                     if (idx > 0) {
                         const temp = layout.items[idx];
                         layout.items[idx] = layout.items[idx - 1];
                         layout.items[idx - 1] = temp;
-                        LayoutManager.saveCurrent(layout);
+                        LayoutManager.saveLayout('custom_matrix', layout);
                         populateLayoutEditor();
                         if (LayoutManager.currentLayoutId === 'custom_matrix') {
                             renderLayout('custom_matrix');
@@ -1682,12 +1785,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
             body.querySelectorAll('.ed-item-down').forEach(btn => {
                 btn.addEventListener('click', (e) => {
+                    if (e) e.preventDefault();
                     const idx = parseInt(e.currentTarget.getAttribute('data-idx'));
                     if (idx < layout.items.length - 1) {
                         const temp = layout.items[idx];
                         layout.items[idx] = layout.items[idx + 1];
                         layout.items[idx + 1] = temp;
-                        LayoutManager.saveCurrent(layout);
+                        LayoutManager.saveLayout('custom_matrix', layout);
                         populateLayoutEditor();
                         if (LayoutManager.currentLayoutId === 'custom_matrix') {
                             renderLayout('custom_matrix');
@@ -1696,209 +1800,137 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
             });
         }
-
-        // Edit Legacy Buttons
-        if (layout.buttons && Array.isArray(layout.buttons)) {
-            const btnHeader = document.createElement('div');
-            btnHeader.innerHTML = '<h4 style="margin-top:12px; margin-bottom:6px; color:var(--accent-cyan); font-size:0.9rem;">Botões de Controle:</h4>';
-            body.appendChild(btnHeader);
-
-            layout.buttons.forEach((btn, idx) => {
-                const card = document.createElement('div');
-                card.classList.add('slider-card');
-                card.style.gap = '8px';
-                card.innerHTML = `
-                    <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <strong>Botão #${idx + 1} (${btn.id})</strong>
-                        <span style="font-size:0.75rem; color:${btn.color || 'var(--accent-cyan)'}">■ Cor</span>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group" style="flex:1;">
-                            <label>Rótulo / Nome:</label>
-                            <input type="text" class="form-control ed-btn-label" data-idx="${idx}" value="${btn.label}">
-                        </div>
-                        <div class="form-group" style="flex:1;">
-                            <label>Comando Enviado:</label>
-                            <input type="text" class="form-control ed-btn-cmd" data-idx="${idx}" value="${btn.cmd}">
-                        </div>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group" style="flex:1;">
-                            <label>Tipo:</label>
-                            <select class="form-control ed-btn-type" data-idx="${idx}">
-                                <option value="momentary" ${btn.type !== 'toggle' ? 'selected' : ''}>Momentâneo (Segurar)</option>
-                                <option value="toggle" ${btn.type === 'toggle' ? 'selected' : ''}>Alternar (Liga/Desliga)</option>
-                            </select>
-                        </div>
-                        <div class="form-group" style="flex:1;">
-                            <label>Cmd ao Soltar (Opcional):</label>
-                            <input type="text" class="form-control ed-btn-rel" data-idx="${idx}" value="${btn.releaseCmd || ''}" placeholder="(mesmo cmd val 0)">
-                        </div>
-                    </div>
-                `;
-                body.appendChild(card);
-            });
-        }
-
-        // Edit Legacy Sliders
-        const sliderList = layout.servos || layout.sliders;
-        if (sliderList && Array.isArray(sliderList)) {
-            const slHeader = document.createElement('div');
-            slHeader.innerHTML = '<h4 style="margin-top:12px; margin-bottom:6px; color:var(--accent-cyan); font-size:0.9rem;">Controles Deslizantes / Servos:</h4>';
-            body.appendChild(slHeader);
-
-            sliderList.forEach((sl, idx) => {
-                const card = document.createElement('div');
-                card.classList.add('slider-card');
-                card.style.gap = '8px';
-                card.innerHTML = `
-                    <strong>Slider #${idx + 1} (${sl.id})</strong>
-                    <div class="form-row">
-                        <div class="form-group" style="flex:1;">
-                            <label>Nome:</label>
-                            <input type="text" class="form-control ed-sl-label" data-idx="${idx}" value="${sl.label}">
-                        </div>
-                        <div class="form-group" style="flex:1;">
-                            <label>Comando:</label>
-                            <input type="text" class="form-control ed-sl-cmd" data-idx="${idx}" value="${sl.cmd}">
-                        </div>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group" style="flex:1;">
-                            <label>Mínimo:</label>
-                            <input type="number" class="form-control ed-sl-min" data-idx="${idx}" value="${sl.min || 0}">
-                        </div>
-                        <div class="form-group" style="flex:1;">
-                            <label>Máximo:</label>
-                            <input type="number" class="form-control ed-sl-max" data-idx="${idx}" value="${sl.max || 180}">
-                        </div>
-                    </div>
-                `;
-                body.appendChild(card);
-            });
-        }
     }
 
     const btnSaveLayout = document.getElementById('btn-save-layout');
     if (btnSaveLayout) {
-        btnSaveLayout.addEventListener('click', () => {
-            const layout = LayoutManager.getCurrent();
-            if (!layout) return;
+        btnSaveLayout.addEventListener('click', (e) => {
+            if (e) e.preventDefault();
+            if (!LayoutManager.layouts || !LayoutManager.layouts.custom_matrix) {
+                LayoutManager.layouts = LayoutManager.layouts || {};
+                LayoutManager.layouts.custom_matrix = JSON.parse(JSON.stringify(LayoutManager.defaultLayouts.custom_matrix));
+            }
+            const layout = LayoutManager.layouts.custom_matrix;
+            if (!Array.isArray(layout.items)) layout.items = [];
 
             // Save Custom Items
-            if (layout.items && Array.isArray(layout.items)) {
-                document.querySelectorAll('.ed-item-label').forEach(inp => {
-                    const idx = parseInt(inp.getAttribute('data-idx'));
-                    if (layout.items[idx]) layout.items[idx].label = inp.value;
-                });
-                document.querySelectorAll('.ed-item-cmd').forEach(inp => {
-                    const idx = parseInt(inp.getAttribute('data-idx'));
-                    if (layout.items[idx]) layout.items[idx].cmd = inp.value;
-                });
-                document.querySelectorAll('.ed-item-width').forEach(inp => {
-                    const idx = parseInt(inp.getAttribute('data-idx'));
-                    if (layout.items[idx]) layout.items[idx].width = inp.value;
-                });
-                document.querySelectorAll('.ed-item-axis').forEach(inp => {
-                    const idx = parseInt(inp.getAttribute('data-idx'));
-                    if (layout.items[idx]) layout.items[idx].axis = inp.value;
-                });
-                document.querySelectorAll('.ed-item-return').forEach(inp => {
-                    const idx = parseInt(inp.getAttribute('data-idx'));
-                    if (layout.items[idx]) layout.items[idx].autoReturn = inp.value === 'true';
-                });
-                document.querySelectorAll('.ed-item-min').forEach(inp => {
-                    const idx = parseInt(inp.getAttribute('data-idx'));
-                    if (layout.items[idx]) layout.items[idx].min = parseInt(inp.value) || 0;
-                });
-                document.querySelectorAll('.ed-item-max').forEach(inp => {
-                    const idx = parseInt(inp.getAttribute('data-idx'));
-                    if (layout.items[idx]) layout.items[idx].max = parseInt(inp.value) || 180;
-                });
-                document.querySelectorAll('.ed-item-btntype').forEach(inp => {
-                    const idx = parseInt(inp.getAttribute('data-idx'));
-                    if (layout.items[idx]) layout.items[idx].btnType = inp.value;
-                });
-                document.querySelectorAll('.ed-item-rel').forEach(inp => {
-                    const idx = parseInt(inp.getAttribute('data-idx'));
-                    if (layout.items[idx]) layout.items[idx].releaseCmd = inp.value.trim();
-                });
-                document.querySelectorAll('.ed-item-height').forEach(inp => {
-                    const idx = parseInt(inp.getAttribute('data-idx'));
-                    if (layout.items[idx]) layout.items[idx].height = parseInt(inp.value) || 20;
-                });
-            }
+            document.querySelectorAll('.ed-item-label').forEach(inp => {
+                const idx = parseInt(inp.getAttribute('data-idx'));
+                if (layout.items[idx]) layout.items[idx].label = inp.value;
+            });
+            document.querySelectorAll('.ed-item-cmd').forEach(inp => {
+                const idx = parseInt(inp.getAttribute('data-idx'));
+                if (layout.items[idx]) layout.items[idx].cmd = inp.value;
+            });
+            document.querySelectorAll('.ed-item-width').forEach(inp => {
+                const idx = parseInt(inp.getAttribute('data-idx'));
+                if (layout.items[idx]) layout.items[idx].width = inp.value;
+            });
+            document.querySelectorAll('.ed-item-axis').forEach(inp => {
+                const idx = parseInt(inp.getAttribute('data-idx'));
+                if (layout.items[idx]) layout.items[idx].axis = inp.value;
+            });
+            document.querySelectorAll('.ed-item-return').forEach(inp => {
+                const idx = parseInt(inp.getAttribute('data-idx'));
+                if (layout.items[idx]) layout.items[idx].autoReturn = inp.value === 'true';
+            });
+            document.querySelectorAll('.ed-item-min').forEach(inp => {
+                const idx = parseInt(inp.getAttribute('data-idx'));
+                if (layout.items[idx]) layout.items[idx].min = parseInt(inp.value) || 0;
+            });
+            document.querySelectorAll('.ed-item-max').forEach(inp => {
+                const idx = parseInt(inp.getAttribute('data-idx'));
+                if (layout.items[idx]) layout.items[idx].max = parseInt(inp.value) || 180;
+            });
+            document.querySelectorAll('.ed-item-btntype').forEach(inp => {
+                const idx = parseInt(inp.getAttribute('data-idx'));
+                if (layout.items[idx]) layout.items[idx].btnType = inp.value;
+            });
+            document.querySelectorAll('.ed-item-rel').forEach(inp => {
+                const idx = parseInt(inp.getAttribute('data-idx'));
+                if (layout.items[idx]) layout.items[idx].releaseCmd = inp.value.trim();
+            });
+            document.querySelectorAll('.ed-item-height').forEach(inp => {
+                const idx = parseInt(inp.getAttribute('data-idx'));
+                if (layout.items[idx]) layout.items[idx].height = parseInt(inp.value) || 20;
+            });
+            document.querySelectorAll('.ed-item-sensor-en').forEach(inp => {
+                const idx = parseInt(inp.getAttribute('data-idx'));
+                if (layout.items[idx]) {
+                    if (!layout.items[idx].sensor) layout.items[idx].sensor = {};
+                    layout.items[idx].sensor.enabled = inp.checked;
+                }
+            });
+            document.querySelectorAll('.ed-item-sensor-axis').forEach(inp => {
+                const idx = parseInt(inp.getAttribute('data-idx'));
+                if (layout.items[idx] && layout.items[idx].sensor) {
+                    layout.items[idx].sensor.axis = inp.value;
+                }
+            });
+            document.querySelectorAll('.ed-item-sensor-sens').forEach(inp => {
+                const idx = parseInt(inp.getAttribute('data-idx'));
+                if (layout.items[idx] && layout.items[idx].sensor) {
+                    layout.items[idx].sensor.sens = parseFloat(inp.value) || 1.0;
+                }
+            });
+            document.querySelectorAll('.ed-item-sensor-inv').forEach(inp => {
+                const idx = parseInt(inp.getAttribute('data-idx'));
+                if (layout.items[idx] && layout.items[idx].sensor) {
+                    layout.items[idx].sensor.invert = inp.checked;
+                }
+            });
 
-            // Save Buttons
-            if (layout.buttons && Array.isArray(layout.buttons)) {
-                document.querySelectorAll('.ed-btn-label').forEach(inp => {
-                    const idx = parseInt(inp.getAttribute('data-idx'));
-                    if (layout.buttons[idx]) layout.buttons[idx].label = inp.value;
-                });
-                document.querySelectorAll('.ed-btn-cmd').forEach(inp => {
-                    const idx = parseInt(inp.getAttribute('data-idx'));
-                    if (layout.buttons[idx]) layout.buttons[idx].cmd = inp.value;
-                });
-                document.querySelectorAll('.ed-btn-type').forEach(inp => {
-                    const idx = parseInt(inp.getAttribute('data-idx'));
-                    if (layout.buttons[idx]) layout.buttons[idx].type = inp.value;
-                });
-                document.querySelectorAll('.ed-btn-rel').forEach(inp => {
-                    const idx = parseInt(inp.getAttribute('data-idx'));
-                    if (layout.buttons[idx]) layout.buttons[idx].releaseCmd = inp.value.trim();
-                });
+            LayoutManager.saveLayout('custom_matrix', layout);
+            if (LayoutManager.currentLayoutId === 'custom_matrix') {
+                renderLayout('custom_matrix');
             }
-
-            // Save Sliders
-            const sliderList = layout.servos || layout.sliders;
-            if (sliderList && Array.isArray(sliderList)) {
-                document.querySelectorAll('.ed-sl-label').forEach(inp => {
-                    const idx = parseInt(inp.getAttribute('data-idx'));
-                    if (sliderList[idx]) sliderList[idx].label = inp.value;
-                });
-                document.querySelectorAll('.ed-sl-cmd').forEach(inp => {
-                    const idx = parseInt(inp.getAttribute('data-idx'));
-                    if (sliderList[idx]) sliderList[idx].cmd = inp.value;
-                });
-                document.querySelectorAll('.ed-sl-min').forEach(inp => {
-                    const idx = parseInt(inp.getAttribute('data-idx'));
-                    if (sliderList[idx]) sliderList[idx].min = parseInt(inp.value) || 0;
-                });
-                document.querySelectorAll('.ed-sl-max').forEach(inp => {
-                    const idx = parseInt(inp.getAttribute('data-idx'));
-                    if (sliderList[idx]) sliderList[idx].max = parseInt(inp.value) || 180;
-                });
-            }
-
-            LayoutManager.saveCurrent(layout);
-            renderLayout(LayoutManager.currentLayoutId);
 
             const modal = document.getElementById('modal-edit');
             if (modal) modal.classList.remove('active');
             triggerHaptic(30);
             playBeep(900, 0.05);
+            logTerminal('Layout Personalizado salvo com sucesso', 'cmd');
         });
     }
 
     const btnResetLayout = document.getElementById('btn-reset-layout');
     if (btnResetLayout) {
-        btnResetLayout.addEventListener('click', () => {
-            LayoutManager.resetToDefault(LayoutManager.currentLayoutId);
-            renderLayout(LayoutManager.currentLayoutId);
+        btnResetLayout.addEventListener('click', (e) => {
+            if (e) e.preventDefault();
+            LayoutManager.resetToDefault('custom_matrix');
+            if (LayoutManager.currentLayoutId === 'custom_matrix') {
+                renderLayout('custom_matrix');
+            }
             populateLayoutEditor();
             triggerHaptic(40);
             playBeep(500, 0.08);
+            logTerminal('Layout Personalizado restaurado para o padrão', 'cmd');
+        });
+    }
+
+    // Modal Edit close buttons specific safeguard
+    const modalEditEl = document.getElementById('modal-edit');
+    if (modalEditEl) {
+        modalEditEl.querySelectorAll('.close-modal').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                if (e) e.preventDefault();
+                modalEditEl.classList.remove('active');
+                triggerHaptic(15);
+            });
         });
     }
 
     // ==========================================
     // 4. MODAL ADICIONAR ELEMENTO PERSONALIZADO
     // ==========================================
-    setupModal('btn-add-element-bar', 'modal-add-element');
+    setupModal('btn-add-element-bar', 'modal-add-element', () => {
+        resetAddElementSensorForm();
+    });
 
     const btnManageLayout = document.getElementById('btn-manage-layout');
     if (btnManageLayout) {
-        btnManageLayout.addEventListener('click', () => {
+        btnManageLayout.addEventListener('click', (e) => {
+            if (e) e.preventDefault();
             const modal = document.getElementById('modal-edit');
             if (modal) {
                 modal.classList.add('active');
@@ -1953,6 +1985,53 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
         });
+    }
+
+    const btnToggleNewSensor = document.getElementById('btn-toggle-new-sensor');
+    const secNewSensorConfig = document.getElementById('section-new-sensor-config');
+    const chkNewUseSensor = document.getElementById('new-el-use-sensor');
+    const badgeNewSensorStatus = document.getElementById('badge-new-sensor-status');
+
+    if (btnToggleNewSensor && secNewSensorConfig) {
+        btnToggleNewSensor.addEventListener('click', () => {
+            const isVis = secNewSensorConfig.style.display !== 'none';
+            secNewSensorConfig.style.display = isVis ? 'none' : 'block';
+            triggerHaptic(15);
+        });
+    }
+
+    if (chkNewUseSensor && badgeNewSensorStatus) {
+        chkNewUseSensor.addEventListener('change', () => {
+            if (chkNewUseSensor.checked) {
+                badgeNewSensorStatus.innerText = 'Ativado';
+                badgeNewSensorStatus.style.background = 'rgba(0, 229, 255, 0.2)';
+                badgeNewSensorStatus.style.color = 'var(--accent-cyan)';
+            } else {
+                badgeNewSensorStatus.innerText = 'Desativado';
+                badgeNewSensorStatus.style.background = 'rgba(255, 255, 255, 0.1)';
+                badgeNewSensorStatus.style.color = 'var(--text-secondary)';
+            }
+        });
+    }
+
+    function resetAddElementSensorForm() {
+        if (secNewSensorConfig) secNewSensorConfig.style.display = 'none';
+        if (chkNewUseSensor) chkNewUseSensor.checked = false;
+        if (badgeNewSensorStatus) {
+            badgeNewSensorStatus.innerText = 'Desativado';
+            badgeNewSensorStatus.style.background = 'rgba(255, 255, 255, 0.1)';
+            badgeNewSensorStatus.style.color = 'var(--text-secondary)';
+        }
+        const chkInv = document.getElementById('new-el-sensor-inv');
+        if (chkInv) chkInv.checked = false;
+        const selAxis = document.getElementById('new-el-sensor-axis');
+        if (selAxis) selAxis.value = 'auto';
+        const selSens = document.getElementById('new-el-sensor-sens');
+        if (selSens) selSens.value = '1.0';
+        const selDead = document.getElementById('new-el-sensor-dead');
+        if (selDead) selDead.value = '5';
+        const selCurve = document.getElementById('new-el-sensor-curve');
+        if (selCurve) selCurve.value = 'linear';
     }
 
     const btnConfirmAdd = document.getElementById('btn-confirm-add-element');
@@ -2020,6 +2099,24 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             if (newItem) {
+                const useSensor = chkNewUseSensor && chkNewUseSensor.checked;
+                if (useSensor) {
+                    const sensorAxis = document.getElementById('new-el-sensor-axis')?.value || 'auto';
+                    const sensorSens = parseFloat(document.getElementById('new-el-sensor-sens')?.value || '1.0');
+                    const sensorDead = parseFloat(document.getElementById('new-el-sensor-dead')?.value || '5');
+                    const sensorCurve = document.getElementById('new-el-sensor-curve')?.value || 'linear';
+                    const sensorInv = document.getElementById('new-el-sensor-inv')?.checked || false;
+
+                    newItem.sensor = {
+                        enabled: true,
+                        axis: sensorAxis,
+                        sens: sensorSens,
+                        deadzone: sensorDead,
+                        curve: sensorCurve,
+                        invert: sensorInv
+                    };
+                }
+
                 if (!LayoutManager.layouts.custom_matrix) {
                     LayoutManager.layouts.custom_matrix = JSON.parse(JSON.stringify(LayoutManager.defaultLayouts.custom_matrix));
                 }
@@ -2031,6 +2128,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (LayoutManager.currentLayoutId === 'custom_matrix') {
                     renderLayout('custom_matrix');
                 }
+
+                resetAddElementSensorForm();
 
                 const modalAdd = document.getElementById('modal-add-element');
                 if (modalAdd) modalAdd.classList.remove('active');
@@ -2215,14 +2314,26 @@ document.addEventListener('DOMContentLoaded', () => {
                 text.innerText = details || 'Desconectado';
             }
         }
+        if (window.DiagnosticManager) {
+            window.DiagnosticManager.onStatus(status, details);
+        }
         logTerminal(`[Status] ${status}: ${details}`, 'rx');
     };
 
     window.onNativeData = (data) => {
+        if (window.DiagnosticManager) {
+            window.DiagnosticManager.onPacketReceived(data ? data.length : 0, data);
+        }
+        if (window.TelemetryManager) {
+            window.TelemetryManager.processIncoming(data);
+        }
         logTerminal(data, 'rx');
     };
 
     window.onNativeError = (err) => {
+        if (window.DiagnosticManager) {
+            window.DiagnosticManager.onError(err);
+        }
         logTerminal(`[Erro] ${err}`, 'err');
         triggerHaptic(50);
     };
@@ -2376,6 +2487,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (window.Android && window.Android.stopSensors) {
                     window.Android.stopSensors();
                 }
+                if (joyThrottle) joyThrottle.resetPosition();
+                if (joySteering) joySteering.resetPosition();
+                if (joyTankLeft) joyTankLeft.resetPosition();
+                if (joyTankRight) joyTankRight.resetPosition();
+                if (joyDroneRight) joyDroneRight.resetPosition();
+                if (joyPlaneRight) joyPlaneRight.resetPosition();
+                if (joyHeliRight) joyHeliRight.resetPosition();
+                if (joyTxRight) joyTxRight.resetPosition();
+                if (customJoystickInstances) {
+                    Object.values(customJoystickInstances).forEach(j => {
+                        if (j && j.resetPosition) j.resetPosition();
+                    });
+                }
                 logTerminal('Controle por Sensores Desativado', 'cmd');
             }
 
@@ -2384,6 +2508,105 @@ document.addEventListener('DOMContentLoaded', () => {
             triggerHaptic(30);
             playBeep(850, 0.05);
         });
+    }
+
+    function handleCustomItemSensor(item, data) {
+        const sensCfg = item.sensor || {};
+        const sensMult = sensCfg.sens !== undefined ? sensCfg.sens : 1.0;
+        const invert = !!sensCfg.invert;
+        const deadzone = sensCfg.deadzone || 0;
+        const axis = sensCfg.axis || 'auto';
+
+        if (item.type === 'joystick') {
+            let jx = 0;
+            let jy = 0;
+
+            if (axis === 'roll') {
+                jx = data.steerVal;
+            } else if (axis === 'pitch') {
+                jy = data.throttleVal;
+            } else if (axis === 'yaw') {
+                let diffY = (data.yaw - sensorCalibration.yaw);
+                if (diffY > 180) diffY -= 360;
+                if (diffY < -180) diffY += 360;
+                jx = Math.round((diffY / 35) * 100);
+            } else if (axis === 'ax') {
+                jx = Math.round(data.ax * 10);
+            } else if (axis === 'ay') {
+                jy = Math.round(data.ay * 10);
+            } else {
+                // auto or both: roll -> X, pitch -> Y
+                jx = data.steerVal;
+                jy = data.throttleVal;
+            }
+
+            jx = Math.round(jx * sensMult);
+            jy = Math.round(jy * sensMult);
+
+            if (invert) {
+                jx = -jx;
+                jy = -jy;
+            }
+
+            if (sensCfg.curve === 'expo') {
+                jx = Math.round(Math.sign(jx) * Math.pow(Math.abs(jx) / 100, 1.8) * 100);
+                jy = Math.round(Math.sign(jy) * Math.pow(Math.abs(jy) / 100, 1.8) * 100);
+            }
+
+            jx = Math.max(-100, Math.min(100, jx));
+            jy = Math.max(-100, Math.min(100, jy));
+
+            customJoystickValues[item.id] = { x: jx, y: jy };
+
+            const joyInst = customJoystickInstances[item.id];
+            if (joyInst) {
+                joyInst.setValues(jx, jy, false);
+            }
+
+            const el = document.getElementById(`telemetry-${item.id}`);
+            if (el) el.innerText = `X:${jx} Y:${jy}`;
+
+        } else if (item.type === 'slider') {
+            let rawVal = 0;
+            if (axis === 'pitch') rawVal = -data.diffPitch;
+            else if (axis === 'roll') rawVal = data.diffRoll;
+            else if (axis === 'yaw') {
+                let dy = (data.yaw - sensorCalibration.yaw);
+                if (dy > 180) dy -= 360;
+                if (dy < -180) dy += 360;
+                rawVal = dy;
+            } else if (axis === 'ax') rawVal = data.ax * 10;
+            else if (axis === 'ay') rawVal = data.ay * 10;
+            else if (axis === 'az') rawVal = data.az * 10;
+            else rawVal = data.diffRoll;
+
+            if (Math.abs(rawVal) < deadzone) rawVal = 0;
+            if (invert) rawVal = -rawVal;
+
+            let norm = Math.max(-1, Math.min(1, (rawVal / 35) * sensMult));
+            if (sensCfg.curve === 'expo') {
+                norm = Math.sign(norm) * Math.pow(Math.abs(norm), 1.8);
+            }
+
+            const min = item.min !== undefined ? item.min : 0;
+            const max = item.max !== undefined ? item.max : 180;
+            const mid = (min + max) / 2;
+            const half = (max - min) / 2;
+            const sliderVal = Math.round(mid + norm * half);
+
+            item.value = sliderVal;
+
+            const card = document.getElementById(`card-${item.id}`);
+            if (card) {
+                const inp = card.querySelector('input[type="range"]');
+                if (inp) inp.value = sliderVal;
+            }
+            const el = document.getElementById(`telemetry-${item.id}`);
+            if (el) el.innerText = sliderVal;
+
+            const formatted = ProtocolManager.formatCommand(item.cmd || 'SLD', { val: sliderVal });
+            sendPacket(formatted);
+        }
     }
 
     function processSensorValues(pitch, roll, yaw, ax, ay, az) {
@@ -2410,22 +2633,125 @@ document.addEventListener('DOMContentLoaded', () => {
         steerVal = Math.max(-100, Math.min(100, steerVal));
         throttleVal = Math.max(-100, Math.min(100, throttleVal));
 
-        if (sensorMode === 'drive') {
-            joystickState.steering = steerVal;
-            joystickState.throttle = throttleVal;
-            const elSteer = document.getElementById('telemetry-steering');
-            if (elSteer) elSteer.innerText = `X: ${steerVal}%`;
-            const elThrot = document.getElementById('telemetry-throttle');
-            if (elThrot) elThrot.innerText = `Y: ${throttleVal}%`;
-        } else if (sensorMode === 'steering_only') {
-            joystickState.steering = steerVal;
-            const elSteer = document.getElementById('telemetry-steering');
-            if (elSteer) elSteer.innerText = `X: ${steerVal}%`;
-        } else if (sensorMode === 'gimbal') {
+        const currentLayout = LayoutManager.currentLayoutId || 'rc_car';
+
+        if (sensorMode === 'gimbal') {
             const s1 = Math.max(0, Math.min(180, Math.round(90 + steerVal * 0.9)));
             const s2 = Math.max(0, Math.min(180, Math.round(90 + throttleVal * 0.9)));
             const formatted = ProtocolManager.formatCommand('GIMBAL', { x: s1, y: s2 });
             sendPacket(formatted);
+            return;
+        }
+
+        if (sensorMode === 'stream_only') {
+            const formatted = ProtocolManager.formatCommand('GYRO', {
+                pitch: Math.round(pitch),
+                roll: Math.round(roll),
+                yaw: Math.round(yaw),
+                ax: Math.round(ax * 100),
+                ay: Math.round(ay * 100)
+            });
+            sendPacket(formatted);
+            return;
+        }
+
+        // Standard Drive & Steering modes adapted per layout:
+        if (currentLayout === 'rc_car') {
+            joystickState.steering = steerVal;
+            if (joySteering) joySteering.setValues(steerVal, 0, false);
+            const elSteer = document.getElementById('telemetry-steering');
+            if (elSteer) elSteer.innerText = `X: ${steerVal}%`;
+
+            if (sensorMode === 'drive') {
+                joystickState.throttle = throttleVal;
+                if (joyThrottle) joyThrottle.setValues(0, throttleVal, false);
+                const elThrot = document.getElementById('telemetry-throttle');
+                if (elThrot) elThrot.innerText = `Y: ${throttleVal}%`;
+            }
+
+        } else if (currentLayout === 'tank') {
+            let leftTrack = 0;
+            let rightTrack = 0;
+
+            if (sensorMode === 'drive') {
+                // Pitch = Forward/Reverse, Roll = Differential Steering
+                leftTrack = Math.max(-100, Math.min(100, throttleVal + Math.round(steerVal * 0.75)));
+                rightTrack = Math.max(-100, Math.min(100, throttleVal - Math.round(steerVal * 0.75)));
+            } else {
+                // Steering only: use existing throttle base and apply differential
+                const baseThr = Math.round((joystickState.leftTrack + joystickState.rightTrack) / 2);
+                leftTrack = Math.max(-100, Math.min(100, baseThr + Math.round(steerVal * 0.75)));
+                rightTrack = Math.max(-100, Math.min(100, baseThr - Math.round(steerVal * 0.75)));
+            }
+
+            joystickState.leftTrack = leftTrack;
+            joystickState.rightTrack = rightTrack;
+
+            // Animate virtual joysticks visually on screen!
+            if (joyTankLeft) joyTankLeft.setValues(0, leftTrack, false);
+            if (joyTankRight) joyTankRight.setValues(0, rightTrack, false);
+
+            const elL = document.getElementById('telemetry-tank-left');
+            if (elL) elL.innerText = `L: ${leftTrack}%`;
+            const elR = document.getElementById('telemetry-tank-right');
+            if (elR) elR.innerText = `R: ${rightTrack}%`;
+
+        } else if (['drone_quad', 'airplane_wing', 'heli_cp', 'rc_transmitter'].includes(currentLayout)) {
+            // Flight attitude: Roll = Aileron/Roll, Pitch = Elevator/Pitch
+            aeroState.roll = steerVal;
+            if (sensorMode === 'drive') {
+                aeroState.pitch = throttleVal;
+            }
+
+            if (currentLayout === 'drone_quad') {
+                if (joyDroneRight) joyDroneRight.setValues(steerVal, aeroState.pitch, false);
+                const elPit = document.getElementById('telemetry-drone-pitch');
+                const elRol = document.getElementById('telemetry-drone-roll');
+                if (elPit) elPit.innerText = `PITCH: ${Math.round(aeroState.pitch)}%`;
+                if (elRol) elRol.innerText = `ROLL: ${Math.round(steerVal)}%`;
+
+            } else if (currentLayout === 'airplane_wing') {
+                if (joyPlaneRight) joyPlaneRight.setValues(steerVal, aeroState.pitch, false);
+                const elEle = document.getElementById('telemetry-plane-ele');
+                const elAil = document.getElementById('telemetry-plane-ail');
+                if (elEle) elEle.innerText = `ELE: ${Math.round(aeroState.pitch)}%`;
+                if (elAil) elAil.innerText = `AIL: ${Math.round(steerVal)}%`;
+
+            } else if (currentLayout === 'heli_cp') {
+                if (joyHeliRight) joyHeliRight.setValues(steerVal, aeroState.pitch, false);
+                const elEle = document.getElementById('telemetry-heli-ele');
+                const elAil = document.getElementById('telemetry-heli-ail');
+                if (elEle) elEle.innerText = `ELE: ${Math.round(aeroState.pitch)}%`;
+                if (elAil) elAil.innerText = `AIL: ${Math.round(steerVal)}%`;
+
+            } else if (currentLayout === 'rc_transmitter') {
+                if (aeroState.stickMode === 2) {
+                    if (joyTxRight) joyTxRight.setValues(steerVal, aeroState.pitch, false);
+                    const elY = document.getElementById('telemetry-tx-right-y');
+                    const elX = document.getElementById('telemetry-tx-right-x');
+                    if (elY) elY.innerText = `Y: ${Math.round(aeroState.pitch)}%`;
+                    if (elX) elX.innerText = `X: ${Math.round(steerVal)}%`;
+                } else {
+                    if (joyTxRight) joyTxRight.setValues(steerVal, 0, false);
+                    if (joyTxLeft) joyTxLeft.setValues(aeroState.yaw, aeroState.pitch, false);
+                }
+            }
+
+            updateLiveAeroVisualizers();
+
+        } else if (currentLayout === 'custom_matrix') {
+            const cm = LayoutManager.layouts.custom_matrix;
+            if (cm && Array.isArray(cm.items)) {
+                cm.items.forEach(item => {
+                    if (item.sensor && item.sensor.enabled) {
+                        handleCustomItemSensor(item, {
+                            pitch, roll, yaw, ax, ay, az,
+                            diffPitch, diffRoll,
+                            steerVal, throttleVal
+                        });
+                    }
+                });
+            }
         }
     }
 
@@ -2633,11 +2959,15 @@ document.addEventListener('DOMContentLoaded', () => {
             document.body.classList.add('camera-hud-active');
             const btnMode = document.getElementById('btn-fpv-mode');
             if (btnMode) btnMode.innerText = '🔲 PiP';
+            const btnBg = document.getElementById('sidebar-btn-cam-bg');
+            if (btnBg) btnBg.innerText = '📹 Desativar Câmera Fundo';
         } else {
             container.classList.add('pip-mode');
             document.body.classList.remove('camera-hud-active');
             const btnMode = document.getElementById('btn-fpv-mode');
             if (btnMode) btnMode.innerText = '🔲 Fundo';
+            const btnBg = document.getElementById('sidebar-btn-cam-bg');
+            if (btnBg) btnBg.innerText = '📹 Ativar Câmera Fundo';
         }
     }
 
@@ -2697,6 +3027,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function stopCameraStream(hideContainer = true) {
+        if (isRecording) {
+            stopCameraRecording();
+        }
+
         const container = document.getElementById('fpv-camera-container');
         const img = document.getElementById('fpv-stream-img');
         const video = document.getElementById('fpv-stream-video');
@@ -2726,6 +3060,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         cameraActive = false;
         document.body.classList.remove('camera-hud-active');
+
+        const btnBg = document.getElementById('sidebar-btn-cam-bg');
+        if (btnBg) btnBg.innerText = '📹 Ativar Câmera Fundo';
 
         if (hideContainer && container) {
             container.style.display = 'none';
@@ -2777,6 +3114,271 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // ==========================================
+    // FPV VIDEO RECORDING (MEDIARECORDER ENGINE)
+    // ==========================================
+    let mediaRecorder = null;
+    let recordedChunks = [];
+    let isRecording = false;
+    let recordingStartTime = 0;
+    let recordingInterval = null;
+    let recordingCanvas = null;
+    let recordingCanvasCtx = null;
+    let recordingCanvasRaf = null;
+
+    function startCameraRecording() {
+        const video = document.getElementById('fpv-stream-video');
+        const img = document.getElementById('fpv-stream-img');
+
+        if (!cameraActive) {
+            alert('Ative a câmera antes de iniciar a gravação.');
+            return;
+        }
+
+        try {
+            let streamToRecord = null;
+
+            // 1. WebRTC / Local camera stream
+            if (localMediaStream && localMediaStream.active) {
+                streamToRecord = localMediaStream;
+            } else if (video && video.srcObject) {
+                streamToRecord = video.srcObject;
+            } else if (img && img.style.display !== 'none' && img.src) {
+                // 2. MJPEG / HTTP stream (ESP32-CAM, Raspberry Pi, Simulator)
+                if (!recordingCanvas) {
+                    recordingCanvas = document.createElement('canvas');
+                }
+                const w = img.naturalWidth || 640;
+                const h = img.naturalHeight || 480;
+                recordingCanvas.width = w;
+                recordingCanvas.height = h;
+                recordingCanvasCtx = recordingCanvas.getContext('2d');
+
+                const drawFrame = () => {
+                    if (!isRecording) return;
+                    try {
+                        if (img.complete && img.naturalWidth > 0) {
+                            recordingCanvasCtx.drawImage(img, 0, 0, w, h);
+                        }
+                    } catch (e) {}
+                    recordingCanvasRaf = requestAnimationFrame(drawFrame);
+                };
+                drawFrame();
+                streamToRecord = recordingCanvas.captureStream ? recordingCanvas.captureStream(30) : null;
+            } else if (video && video.captureStream) {
+                streamToRecord = video.captureStream(30);
+            }
+
+            if (!streamToRecord) {
+                alert('Não foi possível capturar o stream de vídeo para gravação.');
+                return;
+            }
+
+            let mime = 'video/webm;codecs=vp8,opus';
+            if (typeof MediaRecorder.isTypeSupported === 'function') {
+                if (!MediaRecorder.isTypeSupported(mime)) mime = 'video/webm';
+                if (!MediaRecorder.isTypeSupported(mime)) mime = 'video/mp4';
+                if (!MediaRecorder.isTypeSupported(mime)) mime = '';
+            }
+
+            const options = mime ? { mimeType: mime } : {};
+            recordedChunks = [];
+            mediaRecorder = new MediaRecorder(streamToRecord, options);
+
+            mediaRecorder.ondataavailable = (event) => {
+                if (event.data && event.data.size > 0) {
+                    recordedChunks.push(event.data);
+                }
+            };
+
+            mediaRecorder.onstop = () => {
+                if (recordingCanvasRaf) {
+                    cancelAnimationFrame(recordingCanvasRaf);
+                    recordingCanvasRaf = null;
+                }
+                if (recordedChunks.length === 0) {
+                    logTerminal('Nenhum dado de vídeo gravado.', 'err');
+                    return;
+                }
+
+                const finalMime = mediaRecorder.mimeType || 'video/webm';
+                const ext = finalMime.includes('mp4') ? 'mp4' : 'webm';
+                const blob = new Blob(recordedChunks, { type: finalMime });
+                const now = new Date();
+                const pad = (n) => String(n).padStart(2, '0');
+                const dateStr = `${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+                const fileName = `OmniRC_FPV_${dateStr}.${ext}`;
+
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = url;
+                a.download = fileName;
+                document.body.appendChild(a);
+                a.click();
+                setTimeout(() => {
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                }, 2000);
+
+                const sizeMb = (blob.size / (1024 * 1024)).toFixed(2);
+                logTerminal(`Vídeo FPV gravado com sucesso: ${fileName} (${sizeMb} MB)`, 'cmd');
+                triggerHaptic(50);
+                playBeep(920, 0.1);
+            };
+
+            mediaRecorder.start(500);
+            isRecording = true;
+            recordingStartTime = Date.now();
+
+            updateRecordingUI(true);
+            logTerminal('Gravação de vídeo FPV iniciada! 🔴', 'cmd');
+            triggerHaptic(35);
+            playBeep(1200, 0.08);
+
+            if (recordingInterval) clearInterval(recordingInterval);
+            recordingInterval = setInterval(() => {
+                const elapsed = Math.floor((Date.now() - recordingStartTime) / 1000);
+                const mins = String(Math.floor(elapsed / 60)).padStart(2, '0');
+                const secs = String(elapsed % 60).padStart(2, '0');
+                const timeStr = `${mins}:${secs}`;
+
+                const recTimerEl = document.getElementById('fpv-rec-timer');
+                const sidebarTimerEl = document.getElementById('sidebar-rec-status');
+                if (recTimerEl) recTimerEl.innerText = timeStr;
+                if (sidebarTimerEl) sidebarTimerEl.innerText = `Gravando: ${timeStr} 🔴`;
+            }, 1000);
+
+        } catch (err) {
+            console.error('Erro ao iniciar gravação:', err);
+            alert('Erro ao iniciar gravação de vídeo: ' + err.message);
+        }
+    }
+
+    function stopCameraRecording() {
+        if (!isRecording || !mediaRecorder) return;
+        try {
+            mediaRecorder.stop();
+        } catch (e) {}
+        isRecording = false;
+        if (recordingInterval) {
+            clearInterval(recordingInterval);
+            recordingInterval = null;
+        }
+        updateRecordingUI(false);
+    }
+
+    function updateRecordingUI(active) {
+        const btnFpvRecord = document.getElementById('btn-fpv-record');
+        const sidebarBtnRecord = document.getElementById('sidebar-btn-rec');
+        const indicator = document.getElementById('fpv-recording-indicator');
+        const sidebarStatus = document.getElementById('sidebar-rec-status');
+
+        if (active) {
+            if (btnFpvRecord) {
+                btnFpvRecord.innerHTML = '⏹️ STOP';
+                btnFpvRecord.classList.add('recording-active');
+            }
+            if (sidebarBtnRecord) {
+                sidebarBtnRecord.innerHTML = '⏹️ Parar & Salvar';
+                sidebarBtnRecord.classList.add('recording-active');
+            }
+            if (indicator) indicator.style.display = 'flex';
+        } else {
+            if (btnFpvRecord) {
+                btnFpvRecord.innerHTML = '🔴 REC';
+                btnFpvRecord.classList.remove('recording-active');
+            }
+            if (sidebarBtnRecord) {
+                sidebarBtnRecord.innerHTML = '🔴 Gravar Vídeo';
+                sidebarBtnRecord.classList.remove('recording-active');
+            }
+            if (indicator) indicator.style.display = 'none';
+            if (sidebarStatus) sidebarStatus.innerText = 'Inativo';
+        }
+    }
+
+    const btnFpvRecord = document.getElementById('btn-fpv-record');
+    if (btnFpvRecord) {
+        btnFpvRecord.addEventListener('click', () => {
+            if (!isRecording) startCameraRecording();
+            else stopCameraRecording();
+        });
+    }
+
+    const sidebarBtnRec = document.getElementById('sidebar-btn-rec');
+    if (sidebarBtnRec) {
+        sidebarBtnRec.addEventListener('click', () => {
+            if (!isRecording) startCameraRecording();
+            else stopCameraRecording();
+        });
+    }
+
+    // Sidebar Camera Background Toggle
+    const sidebarBtnCamBg = document.getElementById('sidebar-btn-cam-bg');
+    if (sidebarBtnCamBg) {
+        sidebarBtnCamBg.addEventListener('click', () => {
+            if (!cameraActive || cameraDisplayMode !== 'hud') {
+                cameraDisplayMode = 'hud';
+                startCameraStream();
+            } else {
+                stopCameraStream();
+            }
+            triggerHaptic(20);
+        });
+    }
+
+    // ==========================================
+    // CONTROLS OPACITY MANAGER
+    // ==========================================
+    function setControlsOpacity(val) {
+        val = Math.max(15, Math.min(100, parseInt(val) || 85));
+        const opacityVal = (val / 100).toFixed(2);
+        const bgAlpha = ((val / 100) * 0.70).toFixed(2);
+        document.documentElement.style.setProperty('--controls-opacity', opacityVal);
+        document.documentElement.style.setProperty('--controls-bg-alpha', bgAlpha);
+
+        const slider = document.getElementById('slider-controls-opacity');
+        const label = document.getElementById('val-controls-opacity');
+        if (slider) slider.value = val;
+        if (label) label.innerText = `${val}%`;
+
+        document.querySelectorAll('.btn-opacity-chip').forEach(chip => {
+            chip.classList.toggle('active', parseInt(chip.getAttribute('data-opacity')) === val);
+        });
+
+        if (window.Android && window.Android.saveConfig) {
+            window.Android.saveConfig('controls_opacity', String(val));
+        } else {
+            try { localStorage.setItem('omnirc_controls_opacity', String(val)); } catch (e) {}
+        }
+    }
+
+    let savedOpacity = 85;
+    if (window.Android && window.Android.loadConfig) {
+        savedOpacity = parseInt(window.Android.loadConfig('controls_opacity', '85')) || 85;
+    } else {
+        try { savedOpacity = parseInt(localStorage.getItem('omnirc_controls_opacity')) || 85; } catch (e) {}
+    }
+    setControlsOpacity(savedOpacity);
+
+    const sliderOpacity = document.getElementById('slider-controls-opacity');
+    if (sliderOpacity) {
+        sliderOpacity.addEventListener('input', (e) => {
+            setControlsOpacity(e.target.value);
+        });
+    }
+
+    document.querySelectorAll('.btn-opacity-chip').forEach(chip => {
+        chip.addEventListener('click', () => {
+            const op = parseInt(chip.getAttribute('data-opacity'));
+            if (!isNaN(op)) {
+                setControlsOpacity(op);
+                triggerHaptic(15);
+            }
+        });
+    });
+
     // Zero sensor state on emergency stop
     const origEmergencyHandler = btnEmergency ? btnEmergency.onclick : null;
     if (btnEmergency) {
@@ -2786,4 +3388,1119 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // ==========================================
+    // CONNECTION DIAGNOSTICS MANAGER
+    // ==========================================
+    const DiagnosticManager = {
+        state: {
+            packetsSent: 0,
+            bytesSent: 0,
+            packetsReceived: 0,
+            bytesReceived: 0,
+            latencyMs: -1,
+            rttHistory: [],
+            minRtt: 9999,
+            avgRtt: 0,
+            maxRtt: 0,
+            jitter: 0,
+            lossPct: 0.0,
+            txRateHz: 20,
+            txThroughputKBps: '0.0',
+            rxThroughputKBps: '0.0',
+            status: 'DISCONNECTED',
+            details: 'Desconectado',
+            errorCount: 0,
+            errorsList: [],
+            linkStartTime: null,
+            pingTimer: null,
+            lastSecSent: 0,
+            lastSecRecv: 0,
+            lastSecBytesSent: 0,
+            lastSecBytesRecv: 0
+        },
+
+        init() {
+            const diagCfg = (ProtocolManager.config && ProtocolManager.config.diagnostics) ? ProtocolManager.config.diagnostics : {};
+            this.applyConfig(diagCfg);
+
+            // Compute actual rates every 1 second
+            setInterval(() => {
+                this.computeRates();
+                this.updateUI();
+            }, 1000);
+
+            if (diagCfg.pingProbe !== false) {
+                this.startPingProbe(diagCfg.pingIntervalMs || 1000);
+            }
+        },
+
+        applyConfig(cfg) {
+            if (!cfg) return;
+            const hud = document.getElementById('diag-floating-hud');
+            if (hud) {
+                hud.style.display = cfg.showOverlayOnAllModes !== false ? 'flex' : 'none';
+            }
+            if (cfg.pingProbe) {
+                this.startPingProbe(cfg.pingIntervalMs || 1000);
+            } else {
+                this.stopPingProbe();
+            }
+        },
+
+        onPacketSent(byteLen = 0) {
+            this.state.packetsSent++;
+            this.state.bytesSent += byteLen;
+            this.state.lastSecSent++;
+            this.state.lastSecBytesSent += byteLen;
+        },
+
+        onPacketReceived(byteLen = 0, rawData = '') {
+            this.state.packetsReceived++;
+            this.state.bytesReceived += byteLen;
+            this.state.lastSecRecv++;
+            this.state.lastSecBytesRecv += byteLen;
+
+            // Check if packet is a PONG or ACK echo for latency measurement
+            if (typeof rawData === 'string' && (rawData.startsWith('PONG:') || rawData.startsWith('ACK:PING:'))) {
+                const parts = rawData.trim().split(':');
+                const sentTs = parseInt(parts[parts.length - 1]);
+                if (!isNaN(sentTs)) {
+                    const now = Date.now();
+                    const rtt = Math.max(0, now - sentTs);
+                    this.recordLatency(rtt);
+                }
+            }
+        },
+
+        onStatus(status, details) {
+            this.state.status = status;
+            this.state.details = details;
+            if (status === 'CONNECTED') {
+                if (!this.state.linkStartTime) this.state.linkStartTime = Date.now();
+                // If native bridge has diagnostics, fetch it
+                if (window.Android && window.Android.getDiagnosticsJson) {
+                    try {
+                        const nativeStats = JSON.parse(window.Android.getDiagnosticsJson());
+                        if (nativeStats && nativeStats.latencyMs >= 0) {
+                            this.recordLatency(nativeStats.latencyMs);
+                        }
+                    } catch (e) {}
+                }
+            } else if (status === 'DISCONNECTED') {
+                this.state.linkStartTime = null;
+            }
+            this.updateUI();
+        },
+
+        onError(err) {
+            this.state.errorCount++;
+            const timeStr = new Date().toLocaleTimeString();
+            this.state.errorsList.unshift(`[${timeStr}] ${err}`);
+            if (this.state.errorsList.length > 30) this.state.errorsList.pop();
+            this.updateUI();
+        },
+
+        sendPing() {
+            const now = Date.now();
+            if (window.Android && window.Android.sendPing) {
+                window.Android.sendPing();
+            } else {
+                sendPacket(`PING:${now}\n`);
+            }
+            // In browser simulator mode, calculate a simulated ping if running locally
+            if (!window.Android) {
+                setTimeout(() => {
+                    const simRtt = Math.floor(Math.random() * 8) + 12; // 12-20ms local RTT
+                    this.recordLatency(simRtt);
+                }, 15);
+            }
+        },
+
+        startPingProbe(interval = 1000) {
+            this.stopPingProbe();
+            this.state.pingTimer = setInterval(() => {
+                if (this.state.status === 'CONNECTED') {
+                    this.sendPing();
+                }
+            }, interval);
+        },
+
+        stopPingProbe() {
+            if (this.state.pingTimer) {
+                clearInterval(this.state.pingTimer);
+                this.state.pingTimer = null;
+            }
+        },
+
+        recordLatency(rtt) {
+            this.state.latencyMs = rtt;
+            this.state.rttHistory.push(rtt);
+            if (this.state.rttHistory.length > 50) this.state.rttHistory.shift();
+
+            let sum = 0;
+            let min = 99999;
+            let max = 0;
+            for (let i = 0; i < this.state.rttHistory.length; i++) {
+                const v = this.state.rttHistory[i];
+                sum += v;
+                if (v < min) min = v;
+                if (v > max) max = v;
+            }
+            this.state.minRtt = min !== 99999 ? min : 0;
+            this.state.maxRtt = max;
+            this.state.avgRtt = Math.round(sum / this.state.rttHistory.length);
+
+            if (this.state.rttHistory.length >= 2) {
+                const prev = this.state.rttHistory[this.state.rttHistory.length - 2];
+                this.state.jitter = Math.abs(rtt - prev);
+            }
+
+            // Estimate loss percentage based on recent ratio
+            if (this.state.packetsSent > 0) {
+                const loss = Math.max(0, ((this.state.packetsSent - this.state.packetsReceived) / this.state.packetsSent) * 100);
+                this.state.lossPct = Math.min(100, Math.round(loss * 10) / 10);
+            }
+
+            this.updateUI();
+        },
+
+        computeRates() {
+            this.state.txRateHz = this.state.lastSecSent;
+            this.state.txThroughputKBps = (this.state.lastSecBytesSent / 1024).toFixed(1);
+            this.state.rxThroughputKBps = (this.state.lastSecBytesRecv / 1024).toFixed(1);
+            this.state.lastSecSent = 0;
+            this.state.lastSecRecv = 0;
+            this.state.lastSecBytesSent = 0;
+            this.state.lastSecBytesRecv = 0;
+
+            // Query native diagnostics if on Android
+            if (window.Android && window.Android.getDiagnosticsJson) {
+                try {
+                    const nat = JSON.parse(window.Android.getDiagnosticsJson());
+                    if (nat) {
+                        if (nat.latencyMs >= 0) this.state.latencyMs = nat.latencyMs;
+                        if (nat.errorCount) this.state.errorCount = nat.errorCount;
+                    }
+                } catch (e) {}
+            }
+        },
+
+        resetStats() {
+            this.state.packetsSent = 0;
+            this.state.bytesSent = 0;
+            this.state.packetsReceived = 0;
+            this.state.bytesReceived = 0;
+            this.state.latencyMs = -1;
+            this.state.rttHistory = [];
+            this.state.minRtt = 9999;
+            this.state.avgRtt = 0;
+            this.state.maxRtt = 0;
+            this.state.jitter = 0;
+            this.state.lossPct = 0;
+            this.state.errorCount = 0;
+            this.state.errorsList = [];
+            if (window.Android && window.Android.resetDiagnostics) {
+                window.Android.resetDiagnostics();
+            }
+            this.updateUI();
+            logTerminal('Estatísticas de diagnóstico reiniciadas.', 'cmd');
+        },
+
+        updateUI() {
+            const lat = this.state.latencyMs >= 0 ? `${this.state.latencyMs}ms` : '--ms';
+
+            // 1. Top Nav Quick Buttons
+            const qPing = document.getElementById('quick-diag-ping');
+            const qLoss = document.getElementById('quick-diag-loss');
+            if (qPing) {
+                qPing.innerText = `📶 ${lat}`;
+                qPing.className = this.state.latencyMs >= 0 && this.state.latencyMs < 40 ? 'diag-val-good' : (this.state.latencyMs < 100 ? 'diag-val-warn' : 'diag-val-crit');
+            }
+            if (qLoss) {
+                qLoss.innerText = `${this.state.lossPct}%`;
+                qLoss.style.color = this.state.lossPct > 5 ? 'var(--accent-red)' : 'var(--accent-green)';
+            }
+
+            // 2. Floating HUD
+            const hudPing = document.getElementById('hud-diag-ping');
+            const hudLoss = document.getElementById('hud-diag-loss');
+            const hudRate = document.getElementById('hud-diag-rate');
+            const hudStatus = document.getElementById('hud-diag-status');
+            const hudErrors = document.getElementById('hud-diag-errors');
+            const hudPingBar = document.getElementById('hud-diag-ping-bar');
+
+            if (hudPing) hudPing.innerText = lat;
+            if (hudLoss) hudLoss.innerText = `${this.state.lossPct}%`;
+            if (hudRate) hudRate.innerText = `${this.state.txRateHz} Hz (${this.state.txThroughputKBps} kB/s)`;
+            if (hudStatus) {
+                hudStatus.innerText = this.state.status === 'CONNECTED' ? 'Conectado' : (this.state.status === 'CONNECTING' ? 'Conectando...' : 'Desconectado');
+                hudStatus.style.color = this.state.status === 'CONNECTED' ? 'var(--accent-green)' : (this.state.status === 'CONNECTING' ? 'var(--accent-amber)' : 'var(--accent-red)');
+            }
+            if (hudErrors) {
+                hudErrors.innerText = `${this.state.errorCount}`;
+                hudErrors.style.color = this.state.errorCount > 0 ? 'var(--accent-red)' : 'var(--text-secondary)';
+            }
+            if (hudPingBar) {
+                if (this.state.latencyMs < 0) {
+                    hudPingBar.style.width = '0%';
+                } else {
+                    const score = Math.max(10, Math.min(100, 100 - (this.state.latencyMs * 0.7)));
+                    hudPingBar.style.width = `${score}%`;
+                    hudPingBar.style.backgroundColor = this.state.latencyMs < 40 ? 'var(--accent-green)' : (this.state.latencyMs < 100 ? 'var(--accent-amber)' : 'var(--accent-red)');
+                }
+            }
+
+            // 3. Modal Details
+            const mRtt = document.getElementById('diag-detail-rtt');
+            const mRttSub = document.getElementById('diag-detail-rtt-sub');
+            const mLoss = document.getElementById('diag-detail-loss');
+            const mLossSub = document.getElementById('diag-detail-loss-sub');
+            const mRate = document.getElementById('diag-detail-rate');
+            const mThroughput = document.getElementById('diag-detail-throughput');
+            const mStatus = document.getElementById('diag-detail-status');
+            const mEndpoint = document.getElementById('diag-detail-endpoint');
+            const mErrCount = document.getElementById('diag-error-count');
+            const mLog = document.getElementById('diag-log-container');
+
+            if (mRtt) mRtt.innerText = lat;
+            if (mRttSub) mRttSub.innerText = `Mín: ${this.state.minRtt !== 9999 ? this.state.minRtt + 'ms' : '--'} | Média: ${this.state.avgRtt}ms | Máx: ${this.state.maxRtt}ms | Jitter: ${this.state.jitter}ms`;
+            if (mLoss) mLoss.innerText = `${this.state.lossPct}%`;
+            if (mLossSub) mLossSub.innerText = `Enviados: ${this.state.packetsSent} | Recebidos: ${this.state.packetsReceived}`;
+            if (mRate) mRate.innerText = `${this.state.txRateHz} Hz`;
+            if (mThroughput) mThroughput.innerText = `Tx: ${this.state.txThroughputKBps} kB/s (${(this.state.bytesSent / 1024).toFixed(1)} kB) | Rx: ${this.state.rxThroughputKBps} kB/s`;
+            if (mStatus) {
+                mStatus.innerText = this.state.status;
+                mStatus.style.color = this.state.status === 'CONNECTED' ? 'var(--accent-green)' : 'var(--accent-red)';
+            }
+            if (mEndpoint) mEndpoint.innerText = this.state.details || 'Nenhum canal ativo';
+            if (mErrCount) mErrCount.innerText = `${this.state.errorCount}`;
+            if (mLog) {
+                if (this.state.errorsList.length === 0) {
+                    mLog.innerHTML = '<div style="color:var(--accent-green);">✓ Nenhuma falha de comunicação registrada. Link estável.</div>';
+                } else {
+                    mLog.innerHTML = this.state.errorsList.map(err => `<div style="color:var(--accent-red); margin-bottom:2px;">⚠️ ${err}</div>`).join('');
+                }
+            }
+        }
+    };
+    window.DiagnosticManager = DiagnosticManager;
+
+    // ==========================================
+    // TELEMETRY & FLIGHT PANEL MANAGER
+    // ==========================================
+    const TelemetryManager = {
+        state: {
+            voltage: null,
+            percent: null,
+            current: null,
+            capacity: null,
+            satellites: 0,
+            fix: 'No Fix',
+            lat: 0.0,
+            lon: 0.0,
+            altitude: 0,
+            climbRate: 0,
+            speed: 0,
+            heading: 0,
+            rssi: null,
+            lq: null,
+            snr: null,
+            flightMode: '',
+            armed: false,
+            activeAlerts: [],
+            lastDataTime: 0,
+            protocol: 'AUTO-DETECT'
+        },
+
+        init() {
+            this.updateUI();
+
+            // Render artificial horizon on animation loop
+            setInterval(() => {
+                this.drawHorizon('pfd-horizon-modal');
+                this.drawHorizon('pfd-horizon-drone');
+            }, 100);
+        },
+
+        processIncoming(rawData) {
+            if (!rawData) return;
+            const parsed = ProtocolManager.parseTelemetry(rawData);
+            if (!parsed || !parsed.hasData) return;
+
+            this.state.lastDataTime = Date.now();
+            this.state.protocol = parsed.protocol || this.state.protocol;
+
+            if (parsed.voltage !== undefined) this.state.voltage = parsed.voltage;
+            if (parsed.percent !== undefined) this.state.percent = parsed.percent;
+            if (parsed.current !== undefined) this.state.current = parsed.current;
+            if (parsed.capacity !== undefined) this.state.capacity = parsed.capacity;
+            if (parsed.satellites !== undefined) this.state.satellites = parsed.satellites;
+            if (parsed.fix !== undefined) this.state.fix = parsed.fix;
+            if (parsed.lat !== undefined) this.state.lat = parsed.lat;
+            if (parsed.lon !== undefined) this.state.lon = parsed.lon;
+            if (parsed.altitude !== undefined) this.state.altitude = parsed.altitude;
+            if (parsed.climbRate !== undefined) this.state.climbRate = parsed.climbRate;
+            if (parsed.speed !== undefined) this.state.speed = parsed.speed;
+            if (parsed.heading !== undefined) this.state.heading = parsed.heading;
+            if (parsed.rssi !== undefined) this.state.rssi = parsed.rssi;
+            if (parsed.lq !== undefined) this.state.lq = parsed.lq;
+            if (parsed.snr !== undefined) this.state.snr = parsed.snr;
+            if (parsed.flightMode !== undefined) this.state.flightMode = parsed.flightMode;
+            if (parsed.armed !== undefined) this.state.armed = parsed.armed;
+
+            this.evaluateAlerts();
+            this.updateUI();
+        },
+
+        evaluateAlerts() {
+            const cfg = (ProtocolManager.config && ProtocolManager.config.telemetry) ? ProtocolManager.config.telemetry : {};
+            const alerts = [];
+
+            // 1. Battery Voltage Alerts
+            if (this.state.voltage !== null) {
+                const critV = cfg.critLowBatteryVoltage || 10.2;
+                const warnV = cfg.warnLowBatteryVoltage || 10.8;
+                if (this.state.voltage <= critV) {
+                    alerts.push(`BATERIA CRÍTICA (${this.state.voltage.toFixed(1)}V)`);
+                } else if (this.state.voltage <= warnV) {
+                    alerts.push(`BATERIA BAIXA (${this.state.voltage.toFixed(1)}V)`);
+                }
+            }
+            if (this.state.percent !== null && this.state.percent <= (cfg.warnBatteryPct || 20)) {
+                alerts.push(`CARGA BAIXA (${this.state.percent}%)`);
+            }
+
+            // 2. Link Quality & RSSI Alerts
+            if (this.state.rssi !== null && this.state.rssi <= (cfg.warnLowRssi || -85)) {
+                alerts.push(`SINAL FRACO (${this.state.rssi} dBm)`);
+            }
+            if (this.state.lq !== null && this.state.lq <= (cfg.warnLowLq || 70)) {
+                alerts.push(`QUALIDADE DO LINK BAIXA (${this.state.lq}% LQ)`);
+            }
+
+            // 3. GPS Alert (if in air and no 3D Fix)
+            if (this.state.altitude > 5 && this.state.satellites < 4) {
+                alerts.push('GPS SEM FIX 3D');
+            }
+
+            const isNewAlert = alerts.length > 0 && JSON.stringify(alerts) !== JSON.stringify(this.state.activeAlerts);
+            this.state.activeAlerts = alerts;
+
+            if (isNewAlert && cfg.audioAlerts !== false) {
+                playBeep(1400, 0.15, 'square');
+                triggerHaptic(60);
+            }
+        },
+
+        updateUI() {
+            const v = this.state.voltage !== null ? `${this.state.voltage.toFixed(1)}V` : '--.-V';
+            const pct = this.state.percent !== null ? `(${this.state.percent}%)` : '(--%)';
+            const sats = `${this.state.satellites} Sats (${this.state.fix || 'No Fix'})`;
+            const spd = `${Math.round(this.state.speed)} km/h`;
+            const alt = `${Math.round(this.state.altitude)} m`;
+            const rssi = this.state.rssi !== null ? `${this.state.rssi} dBm` : '-- dBm';
+            const lq = this.state.lq !== null ? `(${this.state.lq}% LQ)` : '(0% LQ)';
+
+            // Universal Vehicle Telemetry Bar (Visible in Car, Tank, Gamepad, Robot, etc.)
+            const bVolt = document.getElementById('bar-telem-volt');
+            const bPct = document.getElementById('bar-telem-pct');
+            const bSats = document.getElementById('bar-telem-sats');
+            const bSpd = document.getElementById('bar-telem-speed');
+            const bAlt = document.getElementById('bar-telem-alt');
+            const bRssi = document.getElementById('bar-telem-rssi');
+            const bLq = document.getElementById('bar-telem-lq');
+            const bAlert = document.getElementById('bar-telem-alert');
+            const bPill = document.getElementById('telem-bar-battery-pill');
+
+            if (bVolt) bVolt.innerText = v;
+            if (bPct) bPct.innerText = pct;
+            if (bSats) bSats.innerText = sats;
+            if (bSpd) bSpd.innerText = spd;
+            if (bAlt) bAlt.innerText = alt;
+            if (bRssi) bRssi.innerText = rssi;
+            if (bLq) bLq.innerText = lq;
+
+            if (bPill && this.state.voltage !== null) {
+                bPill.className = 'telem-battery-pill';
+                if (this.state.voltage <= 10.2) bPill.classList.add('crit');
+                else if (this.state.voltage <= 10.8) bPill.classList.add('warn');
+            }
+
+            if (bAlert) {
+                if (this.state.activeAlerts.length > 0) {
+                    bAlert.innerText = `⚠️ ${this.state.activeAlerts[0]}`;
+                    bAlert.className = 'telem-alert-pill active';
+                } else {
+                    bAlert.innerText = 'SISTEMA PRONTO';
+                    bAlert.className = 'telem-alert-pill';
+                }
+            }
+
+            // PFD Cockpit Modal
+            const mBatV = document.getElementById('telem-modal-bat-volt');
+            const mBatSub = document.getElementById('telem-modal-bat-sub');
+            const mGpsFix = document.getElementById('telem-modal-gps-fix');
+            const mGpsCoords = document.getElementById('telem-modal-gps-coords');
+            const mFlight = document.getElementById('telem-modal-flight-nums');
+            const mFlightSub = document.getElementById('telem-modal-flight-sub');
+            const mLinkRssi = document.getElementById('telem-modal-link-rssi');
+            const mLinkSub = document.getElementById('telem-modal-link-sub');
+            const mAlertBox = document.getElementById('telem-modal-alert-box');
+            const mAlertTxt = document.getElementById('telem-modal-alert-text');
+            const mProtoLbl = document.getElementById('telem-modal-proto-label');
+
+            if (mBatV) mBatV.innerText = v;
+            if (mBatSub) mBatSub.innerText = `${pct} | Corrente: ${(this.state.current || 0).toFixed(1)} A | Consumo: ${this.state.capacity || 0} mAh`;
+            if (mGpsFix) mGpsFix.innerText = sats;
+            if (mGpsCoords) mGpsCoords.innerText = `Lat: ${this.state.lat.toFixed(5)} | Lon: ${this.state.lon.toFixed(5)} | Rumo: ${Math.round(this.state.heading)}°`;
+            if (mFlight) mFlight.innerText = `${alt} | ${spd}`;
+            if (mFlightSub) mFlightSub.innerText = `Razão Subida (Vario): ${(this.state.climbRate || 0).toFixed(1)} m/s | Modo: ${this.state.flightMode || 'ESTÁVEL'}`;
+            if (mLinkRssi) mLinkRssi.innerText = rssi;
+            if (mLinkSub) mLinkSub.innerText = `Qualidade: ${lq} | SNR: ${this.state.snr || 0} dB`;
+
+            if (mAlertBox && mAlertTxt) {
+                if (this.state.activeAlerts.length > 0) {
+                    mAlertBox.style.display = 'flex';
+                    mAlertTxt.innerText = `⚠️ ${this.state.activeAlerts.join(' | ')}`;
+                } else {
+                    mAlertBox.style.display = 'none';
+                }
+            }
+            if (mProtoLbl) {
+                mProtoLbl.innerText = `Protocolo Detectado: ${this.state.protocol}`;
+            }
+
+            // Aeromodel Cockpit (Drone / Airplane HUD)
+            const pfdDroneBat = document.getElementById('pfd-drone-bat');
+            const pfdDroneGps = document.getElementById('pfd-drone-gps');
+            const pfdDroneAlt = document.getElementById('pfd-drone-alt');
+            const pfdDroneLink = document.getElementById('pfd-drone-link');
+            const pfdFlightBadge = document.getElementById('pfd-flight-status-badge');
+
+            if (pfdDroneBat) pfdDroneBat.innerText = `${v} ${pct}`;
+            if (pfdDroneGps) pfdDroneGps.innerText = `${this.state.satellites} Sats`;
+            if (pfdDroneAlt) pfdDroneAlt.innerText = `${alt} (${(this.state.climbRate || 0).toFixed(1)}m/s)`;
+            if (pfdDroneLink) pfdDroneLink.innerText = `${rssi} ${lq}`;
+            if (pfdFlightBadge) {
+                if (this.state.activeAlerts.length > 0) {
+                    pfdFlightBadge.innerText = this.state.activeAlerts[0];
+                    pfdFlightBadge.className = 'telem-alert-pill active';
+                } else {
+                    pfdFlightBadge.innerText = this.state.flightMode || 'PRONTO';
+                    pfdFlightBadge.className = 'telem-alert-pill';
+                }
+            }
+        },
+
+        drawHorizon(canvasId) {
+            const canvas = document.getElementById(canvasId);
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            const w = canvas.width;
+            const h = canvas.height;
+
+            let pitch = 0;
+            let roll = 0;
+            if (typeof aeroState !== 'undefined') {
+                pitch = aeroState.pitch || 0;
+                roll = aeroState.roll || 0;
+            }
+
+            ctx.save();
+            ctx.clearRect(0, 0, w, h);
+
+            const cx = w / 2;
+            const cy = h / 2;
+
+            ctx.translate(cx, cy);
+            ctx.rotate((-roll * Math.PI) / 180);
+
+            const pitchOffset = (pitch / 90) * (h / 2);
+
+            // Sky
+            ctx.fillStyle = '#0F264A';
+            ctx.fillRect(-w * 2, -h * 2 + pitchOffset, w * 4, h * 2);
+
+            // Ground
+            ctx.fillStyle = '#14301E';
+            ctx.fillRect(-w * 2, pitchOffset, w * 4, h * 2);
+
+            // Horizon line
+            ctx.strokeStyle = '#00E5FF';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(-w * 2, pitchOffset);
+            ctx.lineTo(w * 2, pitchOffset);
+            ctx.stroke();
+
+            // Pitch ladder
+            ctx.strokeStyle = 'rgba(0, 229, 255, 0.7)';
+            ctx.fillStyle = '#00E5FF';
+            ctx.font = '9px monospace';
+            ctx.textAlign = 'center';
+
+            const pitchStep = h / 6;
+            for (let p = -30; p <= 30; p += 10) {
+                if (p === 0) continue;
+                const y = pitchOffset - (p / 10) * (pitchStep / 1.5);
+                const lineW = Math.abs(p) % 20 === 0 ? 36 : 20;
+
+                ctx.beginPath();
+                ctx.moveTo(-lineW, y);
+                ctx.lineTo(lineW, y);
+                ctx.stroke();
+
+                ctx.fillText(`${p}°`, lineW + 12, y + 3);
+                ctx.fillText(`${p}°`, -lineW - 12, y + 3);
+            }
+
+            ctx.restore();
+
+            // Reticle
+            ctx.strokeStyle = '#00FF88';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(cx - 30, cy);
+            ctx.lineTo(cx - 10, cy);
+            ctx.moveTo(cx + 10, cy);
+            ctx.lineTo(cx + 30, cy);
+            ctx.arc(cx, cy, 5, 0, Math.PI * 2);
+            ctx.stroke();
+
+            // Heading ribbon
+            ctx.fillStyle = 'rgba(8, 12, 20, 0.85)';
+            ctx.fillRect(cx - 50, 2, 100, 16);
+            ctx.strokeStyle = 'var(--border-color)';
+            ctx.strokeRect(cx - 50, 2, 100, 16);
+            ctx.fillStyle = '#00FF88';
+            ctx.font = 'bold 10px monospace';
+            ctx.textAlign = 'center';
+            ctx.fillText(`HDG ${String(Math.round(this.state.heading || 0)).padStart(3, '0')}°`, cx, 14);
+        },
+
+        simulateTestTelemetry() {
+            const mockPkt = JSON.stringify({
+                voltage: 15.4,
+                percent: 86,
+                current: 14.8,
+                capacity: 720,
+                satellites: 18,
+                fix: '3D Fix',
+                lat: -23.55052,
+                lon: -46.63330,
+                altitude: 48.5,
+                climb: 1.4,
+                speed: 38.2,
+                heading: 194,
+                rssi: -66,
+                lq: 100,
+                snr: 10,
+                mode: 'ANGLE / GPS',
+                armed: true
+            });
+            this.processIncoming(mockPkt);
+            logTerminal('[SIM] Telemetria de voo simulada recebida com sucesso!', 'rx');
+            triggerHaptic(30);
+            playBeep(1200, 0.08);
+        }
+    };
+    window.TelemetryManager = TelemetryManager;
+
+    // ==========================================
+    // DIAGNOSTICS & TELEMETRY UI BINDINGS
+    // ==========================================
+    setupModal('btn-open-diag', 'modal-diag', () => {
+        DiagnosticManager.updateUI();
+        const cfg = (ProtocolManager.config && ProtocolManager.config.diagnostics) ? ProtocolManager.config.diagnostics : {};
+        const chkHud = document.getElementById('diag-cfg-show-hud');
+        const chkPing = document.getElementById('diag-cfg-ping-probe');
+        const selInterval = document.getElementById('diag-cfg-ping-interval');
+        const txtLat = document.getElementById('diag-cfg-lat-thresh');
+        const txtLoss = document.getElementById('diag-cfg-loss-thresh');
+
+        if (chkHud) chkHud.checked = cfg.showOverlayOnAllModes !== false;
+        if (chkPing) chkPing.checked = cfg.pingProbe !== false;
+        if (selInterval) selInterval.value = String(cfg.pingIntervalMs || 1000);
+        if (txtLat) txtLat.value = cfg.latencyAlertThreshold || 120;
+        if (txtLoss) txtLoss.value = cfg.lossAlertThreshold || 5;
+    });
+
+    setupModal('btn-open-telem', 'modal-telem', () => {
+        TelemetryManager.updateUI();
+        const cfg = (ProtocolManager.config && ProtocolManager.config.telemetry) ? ProtocolManager.config.telemetry : {};
+        const selDec = document.getElementById('telem-cfg-decoder');
+        const txtBatWarn = document.getElementById('telem-cfg-bat-warn');
+        const txtBatCrit = document.getElementById('telem-cfg-bat-crit');
+        const txtRssi = document.getElementById('telem-cfg-rssi-warn');
+        const txtLq = document.getElementById('telem-cfg-lq-warn');
+        const chkAudio = document.getElementById('telem-cfg-audio-alerts');
+
+        if (selDec) selDec.value = cfg.decoder || 'AUTO';
+        if (txtBatWarn) txtBatWarn.value = cfg.warnLowBatteryVoltage || 10.8;
+        if (txtBatCrit) txtBatCrit.value = cfg.critLowBatteryVoltage || 10.2;
+        if (txtRssi) txtRssi.value = cfg.warnLowRssi || -85;
+        if (txtLq) txtLq.value = cfg.warnLowLq || 70;
+        if (chkAudio) chkAudio.checked = cfg.audioAlerts !== false;
+    });
+
+    const btnPfdQuick = document.getElementById('btn-open-pfd-quick');
+    if (btnPfdQuick) {
+        btnPfdQuick.addEventListener('click', () => {
+            const m = document.getElementById('modal-telem');
+            if (m) m.classList.add('active');
+            TelemetryManager.updateUI();
+            triggerHaptic(20);
+        });
+    }
+
+    // Tab switching for Diagnostics Modal
+    document.querySelectorAll('#modal-diag .tab-btn').forEach(tab => {
+        tab.addEventListener('click', () => {
+            document.querySelectorAll('#modal-diag .tab-btn').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('#modal-diag .tab-content').forEach(c => c.style.display = 'none');
+            tab.classList.add('active');
+            const targetId = tab.getAttribute('data-tab');
+            const targetEl = document.getElementById(targetId);
+            if (targetEl) targetEl.style.display = 'block';
+            triggerHaptic(15);
+        });
+    });
+
+    // Tab switching for Telemetry Modal
+    document.querySelectorAll('#modal-telem .tab-btn').forEach(tab => {
+        tab.addEventListener('click', () => {
+            document.querySelectorAll('#modal-telem .tab-btn').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('#modal-telem .tab-content').forEach(c => c.style.display = 'none');
+            tab.classList.add('active');
+            const targetId = tab.getAttribute('data-tab');
+            const targetEl = document.getElementById(targetId);
+            if (targetEl) targetEl.style.display = 'block';
+            triggerHaptic(15);
+        });
+    });
+
+    // Floating HUD controls
+    const btnToggleHud = document.getElementById('btn-toggle-diag-hud');
+    const floatingHud = document.getElementById('diag-floating-hud');
+    if (btnToggleHud && floatingHud) {
+        btnToggleHud.addEventListener('click', () => {
+            floatingHud.style.display = floatingHud.style.display === 'none' ? 'flex' : 'none';
+            triggerHaptic(20);
+        });
+    }
+
+    const btnMinHud = document.getElementById('btn-diag-min-toggle');
+    if (btnMinHud && floatingHud) {
+        btnMinHud.addEventListener('click', () => {
+            floatingHud.classList.toggle('minimized');
+            btnMinHud.innerText = floatingHud.classList.contains('minimized') ? '□' : '_';
+            triggerHaptic(15);
+        });
+    }
+
+    const btnCloseHud = document.getElementById('btn-diag-hud-close');
+    if (btnCloseHud && floatingHud) {
+        btnCloseHud.addEventListener('click', () => {
+            floatingHud.style.display = 'none';
+            triggerHaptic(15);
+        });
+    }
+
+    const btnDiagDetails = document.getElementById('btn-diag-details');
+    if (btnDiagDetails) {
+        btnDiagDetails.addEventListener('click', () => {
+            const m = document.getElementById('modal-diag');
+            if (m) m.classList.add('active');
+            DiagnosticManager.updateUI();
+            triggerHaptic(20);
+        });
+    }
+
+    // Ping buttons
+    const btnPingNow = document.getElementById('btn-diag-ping-now');
+    const btnManualPing = document.getElementById('btn-diag-manual-ping');
+    const doPing = () => {
+        DiagnosticManager.sendPing();
+        triggerHaptic(25);
+        playBeep(900, 0.04);
+        logTerminal('Ping enviado para medição de latência...', 'cmd');
+    };
+    if (btnPingNow) btnPingNow.addEventListener('click', doPing);
+    if (btnManualPing) btnManualPing.addEventListener('click', doPing);
+
+    // Reset stats
+    const btnResetStats = document.getElementById('btn-diag-reset-stats');
+    if (btnResetStats) {
+        btnResetStats.addEventListener('click', () => {
+            DiagnosticManager.resetStats();
+            triggerHaptic(30);
+            playBeep(600, 0.05);
+        });
+    }
+
+    // Clear error log
+    const btnClearErrors = document.getElementById('btn-diag-clear-errors');
+    if (btnClearErrors) {
+        btnClearErrors.addEventListener('click', () => {
+            DiagnosticManager.state.errorCount = 0;
+            DiagnosticManager.state.errorsList = [];
+            DiagnosticManager.updateUI();
+            triggerHaptic(20);
+        });
+    }
+
+    // Save Diagnostic Config
+    const btnSaveDiagCfg = document.getElementById('btn-save-diag-cfg');
+    if (btnSaveDiagCfg) {
+        btnSaveDiagCfg.addEventListener('click', () => {
+            if (!ProtocolManager.config.diagnostics) ProtocolManager.config.diagnostics = {};
+            const d = ProtocolManager.config.diagnostics;
+            d.showOverlayOnAllModes = document.getElementById('diag-cfg-show-hud').checked;
+            d.pingProbe = document.getElementById('diag-cfg-ping-probe').checked;
+            d.pingIntervalMs = parseInt(document.getElementById('diag-cfg-ping-interval').value) || 1000;
+            d.latencyAlertThreshold = parseInt(document.getElementById('diag-cfg-lat-thresh').value) || 120;
+            d.lossAlertThreshold = parseFloat(document.getElementById('diag-cfg-loss-thresh').value) || 5;
+
+            DiagnosticManager.applyConfig(d);
+            const strVal = JSON.stringify(ProtocolManager.config);
+            if (window.Android && window.Android.saveConfig) {
+                window.Android.saveConfig('protocol', strVal);
+            } else {
+                localStorage.setItem('omnirc_protocol', strVal);
+            }
+
+            const modal = document.getElementById('modal-diag');
+            if (modal) modal.classList.remove('active');
+            triggerHaptic(30);
+            playBeep(1000, 0.08);
+            logTerminal('Configurações de diagnóstico salvas com sucesso!', 'cmd');
+        });
+    }
+
+    // Save Telemetry Config
+    const btnSaveTelemCfg = document.getElementById('btn-save-telem-cfg');
+    if (btnSaveTelemCfg) {
+        btnSaveTelemCfg.addEventListener('click', () => {
+            if (!ProtocolManager.config.telemetry) ProtocolManager.config.telemetry = {};
+            const t = ProtocolManager.config.telemetry;
+            t.decoder = document.getElementById('telem-cfg-decoder').value;
+            t.warnLowBatteryVoltage = parseFloat(document.getElementById('telem-cfg-bat-warn').value) || 10.8;
+            t.critLowBatteryVoltage = parseFloat(document.getElementById('telem-cfg-bat-crit').value) || 10.2;
+            t.warnLowRssi = parseFloat(document.getElementById('telem-cfg-rssi-warn').value) || -85;
+            t.warnLowLq = parseFloat(document.getElementById('telem-cfg-lq-warn').value) || 70;
+            t.audioAlerts = document.getElementById('telem-cfg-audio-alerts').checked;
+
+            const strVal = JSON.stringify(ProtocolManager.config);
+            if (window.Android && window.Android.saveConfig) {
+                window.Android.saveConfig('protocol', strVal);
+            } else {
+                localStorage.setItem('omnirc_protocol', strVal);
+            }
+
+            const modal = document.getElementById('modal-telem');
+            if (modal) modal.classList.remove('active');
+            triggerHaptic(30);
+            playBeep(1000, 0.08);
+            logTerminal('Protocolo de telemetria configurado e salvo com sucesso!', 'cmd');
+        });
+    }
+
+    // Simulate Telemetry Test
+    const btnSimTelem = document.getElementById('btn-telem-simulate-test');
+    if (btnSimTelem) {
+        btnSimTelem.addEventListener('click', () => {
+            TelemetryManager.simulateTestTelemetry();
+        });
+    }
+
+    // ==========================================
+    // PROFILES UI & LOGIC
+    // ==========================================
+    function renderProfilesUI() {
+        const container = document.getElementById('profiles-container');
+        const badge = document.getElementById('profiles-count-badge');
+        if (!container) return;
+
+        const allProfiles = ProfileManager.getAllProfiles();
+        if (badge) badge.innerText = `${allProfiles.length} modelos`;
+
+        container.innerHTML = '';
+        const currentActiveLayout = LayoutManager.currentLayoutId;
+
+        allProfiles.forEach(p => {
+            const card = document.createElement('div');
+            const isActive = p.activeLayoutId === currentActiveLayout && 
+                p.protocol && p.protocol.format === (ProtocolManager.config ? ProtocolManager.config.format : '');
+            card.className = `profile-card ${isActive ? 'active-profile' : ''}`;
+
+            const isFactory = !!p.isFactory;
+            card.innerHTML = `
+                <div class="profile-card-header">
+                    <div class="profile-name">
+                        <span>${p.name}</span>
+                    </div>
+                    <div class="profile-badges-row">
+                        ${isFactory ? '<span class="profile-badge factory">OFICIAL</span>' : '<span class="profile-badge">USUÁRIO</span>'}
+                        ${isActive ? '<span class="profile-badge" style="background:rgba(0,255,136,0.15); color:var(--accent-green); border-color:rgba(0,255,136,0.3);">ATIVO</span>' : ''}
+                    </div>
+                </div>
+                <div class="profile-desc">${p.description || ''}</div>
+                <div class="profile-meta-tags">
+                    <span class="profile-meta-pill">Layout: ${p.activeLayoutId}</span>
+                    <span class="profile-meta-pill">Proto: ${p.protocol ? p.protocol.format : '--'}</span>
+                    <span class="profile-meta-pill">Tx: ${p.protocol && p.protocol.txRateMs ? Math.round(1000 / p.protocol.txRateMs) + 'Hz' : '--'}</span>
+                    ${p.connection && p.connection.type ? `<span class="profile-meta-pill">${p.connection.type}</span>` : ''}
+                </div>
+                <div class="profile-actions">
+                    ${!isFactory ? `<button class="btn-profile-delete" data-id="${p.id}" title="Excluir Perfil">🗑️ Excluir</button>` : ''}
+                    <button class="btn-profile-tool btn-copy-profile" data-id="${p.id}" title="Copiar código JSON para compartilhar">📋 Copiar</button>
+                    <button class="btn-profile-tool btn-export-profile" data-id="${p.id}" title="Baixar arquivo .json">💾 Exportar</button>
+                    <button class="btn-profile-apply" data-id="${p.id}" title="Carregar este perfil agora">▶️ Aplicar</button>
+                </div>
+            `;
+
+            // Action listeners
+            const btnApply = card.querySelector('.btn-profile-apply');
+            if (btnApply) {
+                btnApply.addEventListener('click', () => {
+                    try {
+                        ProfileManager.applyProfile(p.id);
+                        renderProfilesUI();
+                        logTerminal(`Perfil '${p.name}' ativado com sucesso!`, 'cmd');
+                        const modal = document.getElementById('modal-profiles');
+                        if (modal) modal.classList.remove('active');
+                    } catch (e) {
+                        alert('Erro ao aplicar perfil: ' + e.message);
+                    }
+                });
+            }
+
+            const btnExport = card.querySelector('.btn-export-profile');
+            if (btnExport) {
+                btnExport.addEventListener('click', () => {
+                    ProfileManager.downloadProfileFile(p.id);
+                    triggerHaptic(25);
+                    playBeep(900, 0.05);
+                });
+            }
+
+            const btnCopy = card.querySelector('.btn-copy-profile');
+            if (btnCopy) {
+                btnCopy.addEventListener('click', () => {
+                    ProfileManager.copyProfileToClipboard(p.id).then(() => {
+                        btnCopy.innerText = '✅ Copiado!';
+                        setTimeout(() => { btnCopy.innerHTML = '📋 Copiar'; }, 2000);
+                        triggerHaptic(20);
+                        playBeep(1100, 0.04);
+                    }).catch(() => {
+                        alert('Não foi possível copiar automaticamente. Use a exportação de arquivo.');
+                    });
+                });
+            }
+
+            const btnDel = card.querySelector('.btn-profile-delete');
+            if (btnDel) {
+                btnDel.addEventListener('click', () => {
+                    if (confirm(`Deseja realmente excluir o perfil '${p.name}'?`)) {
+                        ProfileManager.deleteProfile(p.id);
+                        renderProfilesUI();
+                        triggerHaptic(30);
+                        playBeep(600, 0.06);
+                    }
+                });
+            }
+
+            container.appendChild(card);
+        });
+    }
+
+    function updateProfileSaveSnapshot() {
+        const summary = document.getElementById('prof-save-summary');
+        if (!summary) return;
+        const curLayout = LayoutManager.getCurrent();
+        const layoutName = curLayout ? curLayout.name : LayoutManager.currentLayoutId;
+        const proto = ProtocolManager.config ? ProtocolManager.config.format : 'DELIMITED';
+        const rate = ProtocolManager.config && ProtocolManager.config.txRateMs ? Math.round(1000 / ProtocolManager.config.txRateMs) + 'Hz' : '20Hz';
+        const telem = ProtocolManager.config && ProtocolManager.config.telemetry ? ProtocolManager.config.telemetry.decoder : 'AUTO';
+        summary.innerText = `Layout: ${layoutName} | Protocolo: ${proto} | Taxa: ${rate} | Telemetria: ${telem}`;
+    }
+
+    setupModal('btn-open-profiles', 'modal-profiles', () => {
+        renderProfilesUI();
+        updateProfileSaveSnapshot();
+    });
+
+    document.querySelectorAll('#modal-profiles .tab-btn').forEach(tab => {
+        tab.addEventListener('click', () => {
+            document.querySelectorAll('#modal-profiles .tab-btn').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('#modal-profiles .tab-content').forEach(c => c.style.display = 'none');
+            tab.classList.add('active');
+            const targetId = tab.getAttribute('data-tab');
+            const targetEl = document.getElementById(targetId);
+            if (targetEl) targetEl.style.display = 'block';
+
+            if (targetId === 'tab-profiles-list') renderProfilesUI();
+            if (targetId === 'tab-profiles-save') updateProfileSaveSnapshot();
+        });
+    });
+
+    // Save profile form button
+    const btnConfirmSave = document.getElementById('btn-confirm-save-profile');
+    if (btnConfirmSave) {
+        btnConfirmSave.addEventListener('click', () => {
+            const nameInput = document.getElementById('prof-save-name');
+            const typeInput = document.getElementById('prof-save-type');
+            const descInput = document.getElementById('prof-save-desc');
+
+            const name = nameInput ? nameInput.value.trim() : '';
+            if (!name) {
+                alert('Por favor, digite um nome para o perfil.');
+                if (nameInput) nameInput.focus();
+                return;
+            }
+
+            try {
+                const newProf = ProfileManager.saveCurrentAsProfile(name, typeInput ? typeInput.value : 'car', descInput ? descInput.value : '');
+                triggerHaptic(40);
+                playBeep(1000, 0.08);
+                logTerminal(`Perfil '${newProf.name}' salvo com sucesso!`, 'cmd');
+
+                // Clear input and switch to list tab
+                if (nameInput) nameInput.value = '';
+                if (descInput) descInput.value = '';
+
+                const listTab = document.querySelector('#modal-profiles .tab-btn[data-tab="tab-profiles-list"]');
+                if (listTab) listTab.click();
+            } catch (err) {
+                alert('Erro ao salvar perfil: ' + err.message);
+            }
+        });
+    }
+
+    // Import file button & input
+    const btnTriggerFile = document.getElementById('btn-trigger-file-import');
+    const fileInput = document.getElementById('prof-file-input');
+    if (btnTriggerFile && fileInput) {
+        btnTriggerFile.addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files && e.target.files[0];
+            if (!file) return;
+
+            ProfileManager.importProfileFromFile(file, (imported) => {
+                triggerHaptic(40);
+                playBeep(1100, 0.08);
+                logTerminal(`Perfil '${imported.name}' importado com sucesso!`, 'cmd');
+                const listTab = document.querySelector('#modal-profiles .tab-btn[data-tab="tab-profiles-list"]');
+                if (listTab) listTab.click();
+            }, (err) => {
+                alert('Falha ao importar perfil: ' + err.message);
+            });
+            fileInput.value = '';
+        });
+    }
+
+    // Import text button
+    const btnConfirmImportText = document.getElementById('btn-confirm-import-text');
+    if (btnConfirmImportText) {
+        btnConfirmImportText.addEventListener('click', () => {
+            const txt = document.getElementById('prof-import-text');
+            const statusEl = document.getElementById('prof-import-status');
+            if (!txt || !txt.value.trim()) {
+                alert('Por favor, cole o código JSON do perfil.');
+                return;
+            }
+
+            try {
+                const imported = ProfileManager.importProfileJson(txt.value.trim());
+                triggerHaptic(40);
+                playBeep(1100, 0.08);
+                if (statusEl) {
+                    statusEl.innerText = `✅ Perfil '${imported.name}' importado com sucesso!`;
+                    statusEl.style.color = 'var(--accent-green)';
+                }
+                txt.value = '';
+                logTerminal(`Perfil '${imported.name}' importado do texto!`, 'cmd');
+                setTimeout(() => {
+                    const listTab = document.querySelector('#modal-profiles .tab-btn[data-tab="tab-profiles-list"]');
+                    if (listTab) listTab.click();
+                }, 800);
+            } catch (err) {
+                if (statusEl) {
+                    statusEl.innerText = `❌ ${err.message}`;
+                    statusEl.style.color = 'var(--accent-red)';
+                }
+                alert('Erro na importação: ' + err.message);
+            }
+        });
+    }
+
+    // ==========================================
+    // HARDWARE GAMEPAD / RADIO USB CONTROLLER (HTML5 GAMEPAD API)
+    // ==========================================
+    let gamepadActive = false;
+    window.addEventListener('gamepadconnected', (e) => {
+        gamepadActive = true;
+        logTerminal(`🎮 Controle Físico Conectado: ${e.gamepad.id}`, 'event');
+        playBeep(1050, 0.08);
+        triggerHaptic(30);
+    });
+
+    window.addEventListener('gamepaddisconnected', (e) => {
+        logTerminal(`🎮 Controle Físico Desconectado: ${e.gamepad.id}`, 'event');
+    });
+
+    function pollGamepadLoop() {
+        if (navigator.getGamepads) {
+            const gps = navigator.getGamepads();
+            for (let i = 0; i < gps.length; i++) {
+                const gp = gps[i];
+                if (!gp) continue;
+
+                const deadzone = 0.08;
+                const filterAxis = (v) => Math.abs(v) < deadzone ? 0 : v;
+
+                const lx = filterAxis(gp.axes[0] || 0);
+                const ly = filterAxis(gp.axes[1] || 0);
+                const rx = filterAxis(gp.axes[2] || 0);
+                const ry = filterAxis(gp.axes[3] || 0);
+
+                const currentLayout = LayoutManager.currentLayoutId || 'rc_car';
+                if (currentLayout === 'rc_car') {
+                    if (Math.abs(ly) > 0.01 || Math.abs(rx) > 0.01) {
+                        joystickState.throttle = Math.round(-ly * 100);
+                        joystickState.steering = Math.round(rx * 100);
+                    }
+                } else if (currentLayout === 'tank') {
+                    if (Math.abs(ly) > 0.01 || Math.abs(ry) > 0.01) {
+                        joystickState.leftTrack = Math.round(-ly * 100);
+                        joystickState.rightTrack = Math.round(-ry * 100);
+                    }
+                } else if (['drone_quad', 'airplane_wing', 'heli_cp', 'rc_transmitter'].includes(currentLayout)) {
+                    if (Math.abs(lx) > 0.01 || Math.abs(ly) > 0.01 || Math.abs(rx) > 0.01 || Math.abs(ry) > 0.01) {
+                        const roll = Math.round(rx * 100);
+                        const pitch = Math.round(-ry * 100);
+                        const throttle = Math.round(Math.max(0, Math.min(100, ((-ly + 1) / 2) * 100)));
+                        const yaw = Math.round(lx * 100);
+                        ProtocolManager.updateAeroSticks(roll, pitch, throttle, yaw);
+                    }
+
+                    if (gp.buttons[0] && gp.buttons[0].pressed && !gp._lastBtn0) {
+                        const curArm = ProtocolManager.channels[4] > 1500;
+                        ProtocolManager.setChannel(4, curArm ? 1000 : 2000);
+                        triggerHaptic(40);
+                    }
+                    gp._lastBtn0 = gp.buttons[0] ? gp.buttons[0].pressed : false;
+                }
+                break;
+            }
+        }
+        requestAnimationFrame(pollGamepadLoop);
+    }
+    requestAnimationFrame(pollGamepadLoop);
+
+    // Start managers
+    DiagnosticManager.init();
+    TelemetryManager.init();
+
 });
+

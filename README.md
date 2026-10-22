@@ -8,9 +8,9 @@ O sistema opera com comunicação em tempo real via **Wi-Fi** (UDP, TCP Socket e
 
 ## 📦 APK Compilado e Instalação Rápida
 
-* **Download Direto:** [OmniRC-Remote.apk (GitHub Releases v1.2.0)](https://github.com/BryamSidoly/OmniRC/releases/download/v1.2.0/OmniRC-Remote.apk)
-* **Arquivo no Repositório:** `OmniRC-Remote.apk` (~115 KB)
-* **Versão:** v1.2.0 (Build 3)
+* **Download Direto:** [OmniRC-Remote.apk (GitHub Releases v1.3.0)](https://github.com/BryamSidoly/OmniRC/releases/download/v1.3.0/OmniRC-Remote.apk)
+* **Arquivo no Repositório:** `OmniRC-Remote.apk` (~152 KB)
+* **Versão:** v1.3.0 (Build 4)
 * **Assinatura:** APK Signature Scheme v1, v2 e v3 (compatível do Android 5.0 Lollipop ao Android 14+)
 
 ### Como Instalar no Celular:
@@ -260,11 +260,18 @@ No menu de layouts, selecione **🎨 Layout Personalizado**. Você pode montar u
    - Criação de divisores estilizados com títulos de seção (ex: "Controles Principais", "Câmera").
    - Alturas de 12px, 24px e 40px.
 
-5. **Organização em Grid Flexível:**
+5. **🧭 Integração com Sensores Inerciais nos Elementos:**
+   - Cada joystick ou slider modular pode ser associado individualmente aos sensores de movimento do telefone (Roll/Pitch).
+   - Selo visual de status (**🧭 SENSOR ON / OFF**) no editor de elementos.
+   - Ajuste fino por elemento de **Ganho/Sensibilidade** (0.2x a 3.0x), **Zona Morta** (0 a 15%) e **Inversão de Eixos**.
+
+6. **Organização em Grid Flexível & Isolamento Estrito de Edição:**
    - **50%:** 2 elementos lado a lado na mesma linha.
    - **100%:** ocupa a largura total da linha.
    - Reordenação (⬆️ subir / ⬇️ descer) e exclusão (🗑️) no menu de gerenciamento.
-   - Persistência automática no armazenamento do Android.
+   - **Isolamento de Layouts:** o editor opera exclusivamente sobre a matriz customizada (`custom_matrix`), protegendo os layouts padrão de fábrica (como Carro RC, Tanque e Drones) contra corrupção acidental.
+   - Botões de **Cancelar**, **Fechar (`✕`)** e **Restaurar Padrão** com confirmação de segurança e restauração imediata do preset original.
+   - Persistência automática no armazenamento local do Android.
 
 ---
 
@@ -298,35 +305,141 @@ No menu de layouts, selecione **🎨 Layout Personalizado**. Você pode montar u
   - Matriz Monitora de 16 Canais: 16 cards com barras de nível gráficas exibindo a posição em microssegundos de cada canal simultaneamente.
 * **📟 Terminal Serial & Monitor:** terminal de telemetria bidirecional, envio manual e histórico de mensagens.
 
+## 📱 Barra Superior Otimizada & Menu Lateral Inteligente (Drawer)
+
+Para evitar poluição visual e botões comprimidos em smartphones em modo paisagem, a interface v1.3.0 foi completamente redesenhada:
+* **Barra Superior Limpa:** Exibe apenas as informações vitais de voo/corrida — indicador de status da conexão, latência RTT em tempo real, seletor de protocolo, botão de Parada de Emergência (🛑) e o botão do Menu Lateral (`☰`).
+* **Menu Lateral com Efeito Vidro Fosco (Glassmorphic Drawer):** Desliza suavemente pela direita, agrupando de forma categorizada todas as telas e ferramentas do ecossistema OmniRC:
+  - 📁 **Perfis:** Salvar, exportar e importar configurações completas de veículos.
+  - 📶 **Diagnóstico de Conexão:** Monitor de latência, jitter, perda de pacotes e erros.
+  - 🛰️ **Telemetria & PFD:** Horizonte artificial (Primary Flight Display), GPS, bateria e alertas.
+  - 📹 **Câmera FPV & Gravação:** Streaming em tempo real, transparência e gravação de vídeo.
+  - 🧭 **Sensores & Giroscópio:** Calibração inercial e sensibilidade de inclinação.
+  - 🎨 **Layouts:** Chaveamento de presets e edição de layouts modulares.
+  - 📟 **Terminal Serial:** Inspeção de pacotes brutos TX/RX e envio manual.
+  - ℹ️ **Ajuda & Atalhos:** Documentação de uso e atalhos rápidos.
+
 ---
 
-## 🧭 Controle por Sensores do Celular (Acelerômetro, Giroscópio & Tilt Control)
+## 📁 Perfis Exportáveis e Importáveis (.json universal)
 
-O OmniRC transforma o seu smartphone em um volante e acelerador por movimento utilizando os sensores inerciais físicos (**Acelerômetro e Giroscópio**) do Android:
+O OmniRC v1.3.0 permite salvar a calibração completa e configurações de múltiplos veículos em arquivos `.json` universais independentes:
+
+```mermaid
+flowchart LR
+    App["OmniRC App"] -->|"Exportar Perfil"| JSON["Arquivo .json\n(Perfil Completo)"]
+    JSON -->|"Importar Perfil"| App
+    JSON -. Compartilhamento .-> Cloud["Google Drive / WhatsApp / GitHub"]
+```
+
+### 📦 O Que é Salvo no Perfil:
+1. **Identificação do Veículo:** Nome do modelo, tipo (Carro, Drone, Tanque, Avião, Braço, Barco, Custom) e ícone visual.
+2. **Layout Completo:** Posição, tipo de widget (joystick, slider, botões, paddings), dimensões em grid, comandos mapeados e associações com sensores inerciais.
+3. **Protocolo de Comunicação:** Formato selecionado (CRSF, MAVLink, MSP, SBUS, IBUS, Delimitado, CSV, JSON, Hex ou Template Customizado) e taxa de transmissão (20ms, 50ms, 100ms).
+4. **Parâmetros de Conexão:** Meio físico preferencial (Wi-Fi UDP/TCP/HTTP, Bluetooth Classic SPP, Bluetooth Low Energy BLE ou USB-OTG), IPs, portas e taxa de baud.
+5. **Calibração de Sensores:** Offsets de zero, sensibilidade, zona morta e inversão de eixos.
+6. **Limiares de Telemetria:** Tensões de corte de bateria, limite de RSSI e alertas de altitude.
+
+* **Gerenciamento sem Complicações:**
+  - 💾 **Salvar Atual:** Grava o estado corrente no armazenamento local do Android.
+  - 📤 **Exportar Perfil:** Baixa o arquivo `.json` gerado para compartilhamento com amigos ou backup.
+  - 📥 **Importar Perfil:** Carrega qualquer arquivo `.json` válido com validação automática de esquema e restauração instantânea de controles e conexões.
+
+---
+
+## 📶 Diagnóstico de Conexão em Tempo Real
+
+Monitore a saúde do link de rádio controle e telemetria em tempo real através do painel de diagnóstico (`#modal-diag`):
+
+```mermaid
+flowchart TD
+    subgraph Stats ["Métricas de Diagnóstico em Tempo Real"]
+        RTT["Latência RTT (Round-Trip Ping)\nExcelente (<20ms) | Alerta (>100ms)"]
+        Loss["Perda de Pacotes (Packet Loss)\nCálculo dinâmico %"]
+        Rate["Taxa de Transferência\nTX/RX pps e Bytes/segundo"]
+        LinkState["Estado do Link Físico\nAtivo | Standby | Reconectando | Falha"]
+        ErrCount["Contador de Falhas\nTimeouts, Sockets, Desconexões"]
+    end
+    Stats --> Pill["Pill de Latência na Top-Bar\n(ex: 🟢 14ms | 🟡 48ms | 🔴 180ms)"]
+```
+
+### 🔬 Recursos do Módulo de Diagnóstico:
+* **Latência RTT Bidirecional (Ping):** Mede o tempo exato decorrido entre o envio de um comando e a confirmação/eco recebida do microcontrolador em milissegundos.
+* **Perda de Pacotes (Packet Loss):** Monitora a sequência contínua de pacotes esperados vs recebidos, calculando a taxa percentual de perda em janelas móveis de tempo.
+* **Taxas de Envio e Recepção (Throughput):** Mede o consumo de largura de banda em pacotes por segundo (`pps`) e bytes por segundo (`B/s`), permitindo identificar saturação de canal ou interferência eletromagnética (RF EMI).
+* **Estado da Conexão:** Notifica instantaneamente quedas de conexão antes que o veículo perca o controle.
+* **Contador de Erros & Reset:** Exibe o número acumulado de falhas de comunicação, retransmissões e erros de parser, com botão de zerar estatísticas para calibração de bancada.
+* **Suporte Universal:** Opera de forma transparente em **todos os modos de operação** (Wi-Fi UDP, TCP, BLE, Bluetooth SPP e USB Serial).
+
+---
+
+## 🛰️ Telemetria Avançada & Painel de Voo PFD (Primary Flight Display)
+
+Inspirado nas estações de solo profissionais e nos visores EdgeTX / OpenTX, o OmniRC v1.3.0 incorpora um painel de instrumentos aeronáuticos completos com horizonte artificial de alta performance:
+
+```mermaid
+flowchart LR
+    TelemIn["Pacote de Telemetria\n(CRSF / MAVLink / MSP / JSON / CSV)"] --> Parser["Decodificador Multi-Protocolo\n(protocol.js)"]
+    Parser --> PFD["Horizonte Artificial (PFD)\nCanvas 60 FPS (Pitch & Roll)"]
+    Parser --> Gauges["Instrumentos Numéricos\nBateria | GPS | Altitude | Velocidade | LQ"]
+    Parser --> Alarms{"Sistema de Alarmes"}
+    Alarms -->|"Tensão < 3.5V/cell ou LQ < 50%"| Warning["Avisos Sonoros (Beep)\ne Alertas Visuais Pulsantes"]
+```
+
+### 🛩️ Instrumentos Integrados:
+1. **Horizonte Artificial (Artificial Horizon Canvas):** Renderiza dinamicamente a atitude da aeronave/drone em tempo real com linhas de graduação de arfagem (*pitch ladder*) e marcador de ângulo de inclinação (*roll bank scale*).
+2. **Monitor de Bateria:** Exibe a tensão total da bateria (ex: `12.4V`), barra gráfica de carga percentual e estimativa de número de células LiPo (1S a 6S).
+3. **Navegação GPS:**
+   - Número de satélites visíveis e sincronizados (com indicador de Fix: *No Fix*, *2D*, *3D*, *DGPS*).
+   - Coordenadas geográficas em tempo real (Latitude e Longitude).
+   - Indicador de bússola / proa magnética (*Heading* em graus).
+4. **Altitude & Velocidade:**
+   - Altitude barométrica ou GPS em metros com indicador de taxa de subida/descida (Variômetro / *Climb Rate* em m/s).
+   - Velocidade em solo (*Ground Speed*) em km/h.
+5. **Qualidade do Link de Rádio (Link Quality / RSSI):**
+   - Nível de potência recebida em dBm (ex: `-68 dBm`).
+   - Porcentagem de qualidade do sinal (LQ 0% a 100%).
+6. **Decodificador Flexível de Telemetria:**
+   - **Formato Texto / CSV:** `BAT:12.4,ALT:45,SAT:11,SPEED:32`
+   - **Formato JSON:** `{"bat":12.4,"alt":45.2,"sats":11,"speed":32.5,"pitch":-5,"roll":12}`
+   - **Protocolos Binários:** Decodificação direta de telemetria CRSF (Battery sensor `0x08`, GPS `0x02`), MAVLink (`SYS_STATUS #1`, `GLOBAL_POSITION_INT #33`, `VFR_HUD #74`) e MSP (`MSP_ANALOG`, `MSP_RAW_GPS`).
+7. **Alarmes Audiovisuais Configuráveis:**
+   - Emite beeps tonais sintetizados e pisca cards em vermelho caso a bateria caia abaixo do limiar crítico ou a qualidade do link caia para zona de perigo.
+
+---
+
+## 🧭 Controle por Sensores do Celular (Acelerômetro, Giroscópio & Tilt Multi-Modo)
+
+O OmniRC transforma o seu smartphone em um volante e manche inercial por movimento utilizando os sensores inerciais físicos (**Acelerômetro e Giroscópio**) do Android com suporte nativo a múltiplos modos de operação veicular:
 
 ```mermaid
 flowchart LR
     Sensors["Sensores Físicos\n(Acelerômetro + Giroscópio)"] --> Java["WebAppInterface.java\n(SensorManager 50ms)"]
     Java --> Calib["Motor de Calibração\n(Zero Offset & Deadzone)"]
-    Calib --> Mode{"Modo de Pilotagem"}
-    Mode -->|"Direção + Acelerador"| Drive["X = Roll (Volante)\nY = Pitch (Acelerador)"]
-    Mode -->|"Somente Direção"| Steer["X = Roll (Volante)\nY = Toque na Tela"]
-    Mode -->|"Gimbal / Câmera"| Gimbal["X = Yaw / Pan\nY = Pitch / Tilt"]
-    Drive --> Proto["Motor de Protocolos\n(Envio UDP / BLE / SPP)"]
-    Steer --> Proto
-    Gimbal --> Proto
+    Calib --> Mode{"Modo Ativo"}
+    Mode -->|"Carro RC"| Drive["X = Roll (Volante)\nY = Pitch (Acelerador)"]
+    Mode -->|"Tanque / Esteira"| TankDiff["Cálculo Diferencial\nLeft/Right por Inclinação"]
+    Mode -->|"Drone / Avião / Heli"| Aero["Roll & Pitch\nAtitude de Voo (Ail/Ele)"]
+    Mode -->|"Layout Custom"| CustomBindings["Associações Individuais\nde Sensores nos Widgets"]
+    Drive --> VisualJoy["Sincronização Visual\nAnimada nos Joysticks"]
+    TankDiff --> VisualJoy
+    Aero --> VisualJoy
+    VisualJoy --> Proto["Motor de Protocolos\n(Envio UDP / BLE / SPP / OTG)"]
 ```
 
 ### 📐 Recursos do Controlador de Sensores:
 1. **Acesso Nativo de Baixa Latência:** A camada Java (`WebAppInterface.java`) registra listeners nos sensores inerciais físicos (`TYPE_ACCELEROMETER` e `TYPE_GYROSCOPE`) com taxa contínua de 50 ms despachados diretamente ao JavaScript (`window.onNativeSensorData`).
 2. **Fallback Universal:** Caso executado em navegadores web ou simuladores de PC, o motor chaveia automaticamente para a API HTML5 `DeviceOrientationEvent` e `DeviceMotionEvent`.
-3. **Calibração de Zero ("Zerar"):** Um botão dedicado grava a postura atual das suas mãos como referência $(0^\circ, 0^\circ)$, permitindo pilotar deitado na cama, sentado à mesa ou segurando o celular em qualquer ângulo com conforto ergonômico.
+3. **Calibração de Zero ("Zerar"):** Um botão dedicado grava a postura atual das suas mãos como referência $(0^\circ, 0^\circ)$, permitindo pilotar deitado, sentado à mesa ou segurando o celular em qualquer ângulo com conforto ergonômico.
 4. **Filtro de Zona Morta (Deadzone):** Descarta vibrações musculares e micro-tremores (configurável de 2° a 20°).
 5. **Multiplicador de Sensibilidade:** Ajustável de $0.2\times$ a $3.0\times$, permitindo controle cirúrgico para veículos velozes ou giro rápido para drift.
-6. **Modos de Pilotagem:**
-   - **🏎️ Direção + Acelerador (Pitch + Roll):** Inclinar para os lados esterça o volante ($X$); inclinar para frente/trás acelera ou freia ($Y$).
-   - **🔄 Somente Direção (Roll):** Esterçamento por inclinação como um volante esportivo real, mantendo aceleração e frenagem sob o controle do polegar no analógico ou botões.
-   - **🎥 Gimbal / Câmera 2 Eixos (Pan / Tilt):** Controla a movimentação de uma câmera ou torre com a orientação do aparelho.
+6. **Mapeamento Multi-Modo Especializado:**
+   - **🏎️ Carro RC / Rover:** Inclinar para os lados esterça o volante ($X$); inclinar para frente/trás modula acelerador e freio ($Y$).
+   - **🛡️ Tanque / Robô de Esteiras:** A inclinação inercial é processada matematicamente pelo algoritmo de tração diferencial gerando velocidades proporcionais para as esteiras esquerda e direita.
+   - **🚁 Drone / Quadricóptero:** Controla a atitude angular de vôo (Roll e Pitch para Aileron e Elevator), mantendo Throttle e Yaw seguros no stick esquerdo.
+   - **✈️ Aeromodelo / Asa Fixa & Helicóptero:** Comandos proporcionais de rolagem e profundor (cíclico e superfícies aerodinâmicas) por inclinação suave do smartphone.
+   - **🎨 Layout Personalizado:** Mapeamento granular configurável diretamente nos elementos modulares com badge indicativo.
+7. **Sincronização Visual dos Joysticks Virtuais:** Ao utilizar sensores de movimento, o manípulo dos joysticks virtuais se move graficamente na tela em tempo real, acompanhando a inclinação do aparelho e fornecendo feedback visual imediato do curso de comando aplicado.
 
 ---
 
@@ -366,26 +479,55 @@ flowchart TD
 5. **Simulador Desktop (`rc_device_server.py`):**
    - Stream sintético de painel HUD gerado em Python em `http://localhost:5500/camera_feed`.
 
-### 🖥️ Modos de Exibição e Recursos Visuais:
-* **Cockpit HUD (Fundo de Tela Dinâmico):** O vídeo preenche todo o fundo do aplicativo com controles translúcidos sobrepostos estilo visor de caça aéreo militar (Heads-Up Display).
-* **PiP (Picture-in-Picture):** Janela flutuante no canto superior da tela com botões de fechar e expansão.
+### 🖥️ Modos de Exibição, Transparência e Gravação de Vídeo:
+* **Cockpit HUD / Câmera em Fundo de Tela:** O vídeo preenche integralmente o fundo do aplicativo com os controles, sticks e botões posicionados à frente (`z-index` em camadas), garantindo visão limpa da pista ou voo sem bloquear a visão do piloto.
+* **Ajuste de Transparência dos Controles:** Slider contínuo de opacidade (20% a 100%) no modal da câmera e no menu lateral, permitindo controles semi-invisíveis para imersão total FPV ou 100% opacos para máxima legibilidade ao ar livre sob luz solar direta.
+* **Janela Flutuante PiP (Picture-in-Picture):** Posiciona a câmera em uma janela redimensionável no canto superior enquanto mantém a área de pilotagem convencional.
+* **🎥 Gravação de Vídeo Integrada (.webm):**
+  - Motor de gravação nativo baseado na API `MediaRecorder` do navegador/Android WebView.
+  - Gravação com áudio opcional e captura direta do stream ou canvas com carimbo de tempo em tempo real.
+  - Botão de Iniciar/Parar com badge visual pulsante de gravação ativa (`REC 00:15`) e download automático imediato para a memória do dispositivo ao encerrar.
 * **Controles Rápidos:**
   - 🔄 **Espelhar Horizontal:** Inverte o feed da câmera para manter a referência correta ao olhar para trás.
   - ↕️ **Espelhar Vertical:** Corrige a imagem caso o módulo da câmera esteja instalado de cabeça para baixo no chassi do veículo.
-  - 📸 **Captura de Tela (Snapshot):** Salva fotos do trajeto instantaneamente com carimbo de data e hora.
+  - 📸 **Captura de Tela (Snapshot):** Salva fotos do trajeto instantaneamente com carimbo de data e hora em alta resolução.
 
 ---
 
-## 🧪 Ambiente de Testes e Simulação no Windows
+## 🧪 Ambiente de Testes, Simulação Física & Periféricos Reais
 
-* **Simulador Completo com Dashboard Web (`rc_device_server.py`):**
+O OmniRC inclui um ecossistema completo de testes para validar seu projeto no PC antes de ligar motores em veículos reais:
+
+```mermaid
+flowchart TD
+    subgraph Host ["Ambiente de Simulação no Computador"]
+        Gamepad["🎮 Controles Físicos Reais\n(Gamepads Xbox / PS5 / Joysticks USB via HTML5 Gamepad API)"]
+        WebDash["💻 Painel Físico Web (rc_device_server.py)\nVelocímetro, Rotação, Bateria LiPo, Servos 3D"]
+        Physics["⚙️ Motor Físico & Eletroeletrônico\nArrasto, Inércia, Consumo (A), Aquecimento, Tensão (V)"]
+        NetSim["📡 Portas de Rede & Serial\nUDP/TCP 8888, Serial COM / USB"]
+    end
+    
+    subgraph Client ["OmniRC Remote"]
+        App["App Android / simulate.py"]
+    end
+    
+    Gamepad --> App
+    App <-->|"Controle & Telemetria Bidirecional"| NetSim
+    NetSim <--> Physics
+    Physics --> WebDash
+```
+
+* **Simulador Completo com Dashboard Web & Física Avançada (`rc_device_server.py`):**
   ```powershell
   python rc_device_server.py
   ```
-  Abre um painel em `http://localhost:5500` com velocímetro, volante com ângulo real, motores, luzes, buzina, telemetria e 4 servos animados. Escuta em UDP e TCP na porta 8888.
-* **Simulador no Navegador (`simulate.py`):** roda a interface do app no navegador do PC com mock da API Android nativa.
-* **Receptor UDP Simples (`mock_receiver.py`):** exibe pacotes UDP diretamente no console do Windows.
-* **Depuração Remota via Chrome DevTools:** conecte o celular por USB com depuração ativada e acesse `chrome://inspect/#devices`.
+  - Abre um painel dinâmico em `http://localhost:5500` com velocímetro, ângulo de direção real, motores girando com inércia, faróis, buzina e 4 servos animados.
+  - **Simulação Mecânica & Dinâmica Veicular:** Calcula inércia de massa, atrito de rolamento estático/cinético, aceleração angular e arrasto aerodinâmico.
+  - **Simulação Elétrica & Eletrônica:** Estima o consumo instantâneo de corrente em Amperes ($A$), aquecimento térmico dos motores sob carga, descarga e queda de tensão (*voltage sag*) da bateria LiPo com geração automática de pacotes de telemetria reversa para o app.
+  - **Suporte a Periféricos Físicos Reais:** Suporta gamepads reais (Xbox, DualShock, joysticks USB) conectados ao PC ou smartphone através da Gamepad API padrão, além de conexão física com placas Arduino/ESP32 reais via porta serial COM.
+* **Simulador Web do App (`simulate.py`):** executa o app OmniRC diretamente no navegador do computador (Edge/Chrome/Firefox) com mock completo de todas as APIs nativas do Android (Vibração, Áudio Synth, Sensores de Orientação, Wi-Fi e Bluetooth).
+* **Receptor UDP Simples (`mock_receiver.py`):** exibe pacotes UDP decodificados em tempo real diretamente no console do Windows.
+* **Depuração Remota via Chrome DevTools:** conecte o smartphone via USB com a opção "Depuração USB" ativada e depure o WebView em tempo real por `chrome://inspect/#devices`.
 
 ---
 
@@ -528,3 +670,47 @@ Para recompilar o projeto após qualquer alteração:
 python build.py
 ```
 O script executa automaticamente AAPT2, vinculação com o `android.jar`, compilação Java com javac, conversão Dalvik DEX com D8 e assinatura v1/v2/v3 em menos de 1 segundo.
+
+---
+
+## 📜 Histórico de Versões & Notas de Lançamento
+
+### 🚀 v1.3.0 (Build 4) - *Release Atual*
+* **📱 Menu Lateral Inteligente (Drawer Glassmorphic):** Redesenho da navegação superior para evitar aglomeração de botões em modo paisagem. Barra de ferramentas limpa com botão hambúrguer deslizante para todas as telas secundárias.
+* **📶 Diagnóstico de Conexão em Tempo Real:** Monitoramento dinâmico de latência RTT (Ping), jitter, perda de pacotes (Packet Loss %), taxa de transferência (pps e B/s), estado do link e contadores de erros de socket e timeout.
+* **📁 Perfis Exportáveis e Importáveis (.json universal):** Salve e compartilhe configurações completas de veículos, layouts personalizados, calibrações de sensores, conexões e limiares de alarme com importação/exportação com 1 clique.
+* **🛰️ Telemetria Avançada & Painel de Voo PFD (Primary Flight Display):** Horizonte artificial com atitude angular (Pitch/Roll), altímetro, velocímetro, status de satélites GPS, medidor de tensão e porcentagem de bateria LiPo, qualidade do link de rádio (LQ/RSSI) e alarmes audiovisuais.
+* **📹 Câmera FPV em Fundo de Tela, Opacidade & Gravação de Vídeo:**
+  - Modo Cockpit com fluxo de vídeo ocupando todo o fundo por trás dos joysticks.
+  - Controle deslizante de transparência dos controles (20% a 100%).
+  - Gravação de vídeo nativa integrada (`.webm`) com badge de tempo e salvamento direto.
+* **🧭 Controle por Sensores Multi-Modo:**
+  - Suporte completo a Carro RC, Tanque (tração diferencial por inclinação), Drones, Aeromodelos e Helicópteros (atitude angular).
+  - Correção na sincronização visual: os manípulos dos joysticks virtuais agora se movem e acompanham a inclinação física do smartphone em tempo real.
+* **🎨 Layout Personalizado Modular com Sensores:**
+  - Associação direta de elementos modulares com eixos inerciais e selo visual (`🧭 SENSOR ON`).
+  - Isolamento estrito de edição: garantia de que alterações, fechar (`✕`), cancelar ou restaurar padrão afetem apenas a matriz personalizada, protegendo os layouts padrão de fábrica contra corrupção.
+* **🎮 Simulador com Física Avançada & Periféricos Reais:**
+  - `rc_device_server.py` com modelo físico, dinâmico, mecânico, elétrico e térmico em tempo real.
+  - Suporte a controles físicos reais (joysticks USB e gamepads Bluetooth) através da API Gamepad no navegador e simulador.
+
+---
+
+### 🚁 v1.2.0 (Build 3)
+* **✈️ Presets de Aeromodelismo:** Drones/Multirrotores, Aviões/Asas Fixas (INAV/ArduPlane), Helicópteros CP e Transmissor Universal de 16 Canais estilo EdgeTX/OpenTX.
+* **📡 Protocolos Profissionais:** Adição de CRSF (ExpressLRS / TBS Crossfire), SBUS (Futaba/FrSky), IBUS (FlySky), MAVLink v1 (ArduPilot/Pixhawk) e MSP (INAV/Betaflight).
+* **🔌 Conexão USB-OTG Serial:** Drivers nativos para chipsets CP210x, CDC-ACM, CH340, FTDI e PL2303 com detecção de plug/unplug em tempo real.
+* **📱 Tela Paisagem & Assinatura Release Key:** Orientação horizontal forçada e correção de instalação em aparelhos modernos (Galaxy A56, Android 14/15).
+
+---
+
+### 🏎️ v1.1.0 (Build 2)
+* **🎨 Construtor de Layout Personalizado:** Criação modular de analógicos, botões e sliders com persistência local.
+* **🧭 Controle por Giroscópio / Acelerômetro:** Pilotagem inercial por inclinação do aparelho com calibração de zero.
+* **📹 Streaming de Câmera FPV:** Suporte a feeds MJPEG de ESP32-CAM e câmeras IP locais com snapshot e espelhamento.
+
+---
+
+### 📦 v1.0.0 (Build 1)
+* **Lançamento Inicial:** Comunicação Wi-Fi (UDP, TCP, HTTP) e Bluetooth (Classic SPP e BLE GATT).
+* Layouts básicos de Carro RC e Terminal Serial.

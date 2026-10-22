@@ -98,6 +98,25 @@ class SimulatorHandler(http.server.SimpleHTTPRequestHandler):
                         console.log("[Android Mock] Desconectado");
                         if (window.onNativeStatus) window.onNativeStatus("DISCONNECTED", "Desconectado");
                     },
+                    getDiagnosticsJson: function() {
+                        return JSON.stringify({
+                            packetsSent: 0,
+                            packetsReceived: 0,
+                            bytesSent: 0,
+                            bytesReceived: 0,
+                            latencyMs: 14,
+                            errorCount: 0,
+                            lastError: ""
+                        });
+                    },
+                    sendPing: function() {
+                        setTimeout(() => {
+                            if (window.DiagnosticManager) window.DiagnosticManager.recordLatency(Math.floor(Math.random() * 8) + 12);
+                        }, 12);
+                    },
+                    resetDiagnostics: function() {
+                        console.log("[Android Mock] Reset diagnostics");
+                    },
                     sendPacket: function(data, isHex) {
                         // Envia para o receptor local via endpoint do Python
                         fetch('/api/send_packet', {

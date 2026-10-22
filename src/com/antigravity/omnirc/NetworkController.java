@@ -44,6 +44,17 @@ public class NetworkController {
     private Thread tcpReceiveThread;
     private volatile boolean isTcpConnected = false;
 
+    // Connection diagnostics
+    private long packetsSent = 0;
+    private long packetsReceived = 0;
+    private long bytesSent = 0;
+    private long bytesReceived = 0;
+    private long lastPingSent = 0;
+    private long lastPingRtt = -1;
+    private int errorCount = 0;
+    private String lastError = "";
+    private final Object diagLock = new Object();
+
     // Current Mode: "NONE", "UDP", "TCP", "HTTP"
     private String activeMode = "NONE";
     private String targetHost = "192.168.4.1";
@@ -76,7 +87,25 @@ public class NetworkController {
                         try {
                             DatagramPacket packet = new DatagramPacket(buf, buf.length);
                             udpSocket.receive(packet);
-                            String received = new String(packet.getData(), 0, packet.getLength(), StandardCharsets.UTF_8);
+                            int len = packet.getLength();
+                            synchronized (diagLock) {
+                                packetsReceived++;
+                                bytesReceived += len;
+                            }
+                            String received = new String(packet.getData(), 0, len, StandardCharsets.UTF_8);
+                            // Process PONG or ECHO for RTT latency
+                            if (received.startsWith("PONG:") || received.startsWith("ACK:PING:")) {
+                                try {
+                                    String[] parts = received.trim().split(":");
+                                    long sentTs = Long.parseLong(parts[parts.length - 1]);
+                                    long rtt = System.currentTimeMillis() - sentTs;
+                                    if (rtt >= 0 && rtt < 10000) {
+                                        synchronized (diagLock) {
+                                            lastPingRtt = rtt;
+                                        }
+                                    }
+                                } catch (Exception ignored) {}
+                            }
                             postData(received);
                         } catch (Exception e) {
                             if (!isUdpRunning) break;
@@ -87,6 +116,7 @@ public class NetworkController {
                 udpReceiveThread.start();
             } catch (Exception e) {
                 Log.e(TAG, "UDP start failed", e);
+                recordError("UDP start failed: " + e.getMessage());
                 postError("UDP start failed: " + e.getMessage());
                 postStatus("DISCONNECTED", "UDP error");
             }
@@ -113,11 +143,28 @@ public class NetworkController {
                     try (BufferedReader reader = new BufferedReader(new InputStreamReader(tcpSocket.getInputStream(), StandardCharsets.UTF_8))) {
                         String line;
                         while (isTcpConnected && (line = reader.readLine()) != null) {
+                            synchronized (diagLock) {
+                                packetsReceived++;
+                                bytesReceived += line.getBytes(StandardCharsets.UTF_8).length;
+                            }
+                            if (line.startsWith("PONG:") || line.startsWith("ACK:PING:")) {
+                                try {
+                                    String[] parts = line.trim().split(":");
+                                    long sentTs = Long.parseLong(parts[parts.length - 1]);
+                                    long rtt = System.currentTimeMillis() - sentTs;
+                                    if (rtt >= 0 && rtt < 10000) {
+                                        synchronized (diagLock) {
+                                            lastPingRtt = rtt;
+                                        }
+                                    }
+                                } catch (Exception ignored) {}
+                            }
                             postData(line);
                         }
                     } catch (Exception e) {
                         if (isTcpConnected) {
                             Log.w(TAG, "TCP connection lost: " + e.getMessage());
+                            recordError("TCP connection lost: " + e.getMessage());
                             postStatus("DISCONNECTED", "TCP disconnected: " + e.getMessage());
                         }
                     } finally {
@@ -128,6 +175,7 @@ public class NetworkController {
             } catch (Exception e) {
                 Log.e(TAG, "TCP connection failed", e);
                 isTcpConnected = false;
+                recordError("TCP connect error: " + e.getMessage());
                 postError("TCP connect error: " + e.getMessage());
                 postStatus("DISCONNECTED", "TCP connect failed");
             }
@@ -135,6 +183,11 @@ public class NetworkController {
     }
 
     public void sendData(byte[] bytes) {
+        synchronized (diagLock) {
+            packetsSent++;
+            bytesSent += bytes != null ? bytes.length : 0;
+        }
+
         if ("UDP".equals(activeMode)) {
             if (udpSocket != null && !udpSocket.isClosed() && udpTargetAddress != null) {
                 executor.execute(() -> {
@@ -143,6 +196,7 @@ public class NetworkController {
                         udpSocket.send(packet);
                     } catch (Exception e) {
                         Log.e(TAG, "UDP send error", e);
+                        recordError("UDP send error: " + e.getMessage());
                     }
                 });
             }
@@ -154,10 +208,54 @@ public class NetworkController {
                         tcpOut.flush();
                     } catch (Exception e) {
                         Log.e(TAG, "TCP send error", e);
+                        recordError("TCP send error: " + e.getMessage());
                         postError("TCP send failed: " + e.getMessage());
                     }
                 });
             }
+        }
+    }
+
+    public void sendPing() {
+        long now = System.currentTimeMillis();
+        lastPingSent = now;
+        String pingMsg = "PING:" + now + "\n";
+        sendData(pingMsg.getBytes(StandardCharsets.UTF_8));
+    }
+
+    public String getDiagnosticsJson() {
+        synchronized (diagLock) {
+            return "{" +
+                    "\"packetsSent\":" + packetsSent + "," +
+                    "\"packetsReceived\":" + packetsReceived + "," +
+                    "\"bytesSent\":" + bytesSent + "," +
+                    "\"bytesReceived\":" + bytesReceived + "," +
+                    "\"latencyMs\":" + lastPingRtt + "," +
+                    "\"errorCount\":" + errorCount + "," +
+                    "\"lastError\":\"" + (lastError != null ? lastError.replace("\"", "\\\"").replace("\n", " ") : "") + "\"," +
+                    "\"activeMode\":\"" + activeMode + "\"," +
+                    "\"targetHost\":\"" + targetHost + "\"," +
+                    "\"targetPort\":" + targetPort +
+                    "}";
+        }
+    }
+
+    public void resetDiagnostics() {
+        synchronized (diagLock) {
+            packetsSent = 0;
+            packetsReceived = 0;
+            bytesSent = 0;
+            bytesReceived = 0;
+            lastPingRtt = -1;
+            errorCount = 0;
+            lastError = "";
+        }
+    }
+
+    public void recordError(String err) {
+        synchronized (diagLock) {
+            errorCount++;
+            lastError = err != null ? err : "Unknown error";
         }
     }
 
@@ -192,6 +290,7 @@ public class NetworkController {
                 }
             } catch (Exception e) {
                 Log.e(TAG, "HTTP send error", e);
+                recordError("HTTP error: " + e.getMessage());
                 postError("HTTP error: " + e.getMessage());
             } finally {
                 if (conn != null) conn.disconnect();
@@ -234,6 +333,7 @@ public class NetworkController {
     }
 
     private void postError(String error) {
+        recordError(error);
         mainHandler.post(() -> listener.onError(error));
     }
 }

@@ -297,6 +297,21 @@ public class WebAppInterface {
     }
 
     @JavascriptInterface
+    public String getDiagnosticsJson() {
+        return networkController.getDiagnosticsJson();
+    }
+
+    @JavascriptInterface
+    public void sendPing() {
+        networkController.sendPing();
+    }
+
+    @JavascriptInterface
+    public void resetDiagnostics() {
+        networkController.resetDiagnostics();
+    }
+
+    @JavascriptInterface
     public void scanBluetooth(String type) {
         activity.ensurePermissions();
         if ("BLE".equalsIgnoreCase(type)) {

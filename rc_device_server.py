@@ -246,6 +246,8 @@ def udp_worker():
     while True:
         try:
             data, addr = sock.recvfrom(2048)
+            if data.startswith(b"PING:"):
+                sock.sendto(b"PONG:" + data[5:], addr)
             parse_incoming_command(data, addr)
         except Exception as e:
             print(f"[UDP] ERRO: {type(e).__name__}: {e}")

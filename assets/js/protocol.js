@@ -16,7 +16,26 @@ const ProtocolManager = {
         deadzone: 5, // percent
         txRateMs: 50, // 20Hz default, 20ms for 50Hz, 10ms for 100Hz
         channelMap: 'AETR', // 'AETR', 'TAER', 'RETA'
-        stickMode: 2 // 2 (Left Throttle/Yaw, Right Pitch/Roll) or 1 (Right Throttle/Roll)
+        stickMode: 2, // 2 (Left Throttle/Yaw, Right Pitch/Roll) or 1 (Right Throttle/Roll)
+        // Telemetry Decoder Configuration
+        telemetry: {
+            decoder: 'AUTO', // 'AUTO', 'JSON', 'DELIMITED', 'CRSF', 'MAVLINK', 'MSP', 'KEYVALUE'
+            warnLowBatteryVoltage: 10.8,
+            critLowBatteryVoltage: 10.2,
+            warnBatteryPct: 20,
+            warnLowRssi: -85,
+            warnLowLq: 70,
+            audioAlerts: true
+        },
+        // Connection Diagnostics Configuration
+        diagnostics: {
+            enabled: true,
+            showOverlayOnAllModes: true,
+            pingProbe: true,
+            pingIntervalMs: 1000,
+            lossAlertThreshold: 5,
+            latencyAlertThreshold: 120
+        }
     },
 
     // 16 channels in microseconds (1000..2000 us, center 1500 us, throttle idle 1000 us)
@@ -376,5 +395,392 @@ const ProtocolManager = {
             return tpl;
         }
         return cmd + ending;
+    },
+
+    // ==========================================
+    // INCOMING TELEMETRY PARSER ENGINE
+    // ==========================================
+    parseHexBytes(input) {
+        if (!input || typeof input !== 'string') return null;
+        const clean = input.trim().replace(/0x/gi, '').replace(/[^0-9a-fA-F]/g, '');
+        if (clean.length < 4 || clean.length % 2 !== 0) return null;
+        const bytes = new Uint8Array(clean.length / 2);
+        for (let i = 0; i < clean.length; i += 2) {
+            bytes[i / 2] = parseInt(clean.substr(i, 2), 16);
+        }
+        return bytes;
+    },
+
+    parseTelemetry(raw) {
+        if (!raw) return null;
+        const mode = (this.config.telemetry && this.config.telemetry.decoder) ? this.config.telemetry.decoder : 'AUTO';
+
+        let bytes = null;
+        if (raw instanceof Uint8Array) {
+            bytes = raw;
+        } else if (typeof raw === 'string') {
+            const trimmed = raw.trim();
+            // Check if string is raw JSON first
+            if ((mode === 'AUTO' || mode === 'JSON') && (trimmed.startsWith('{') && trimmed.endsWith('}'))) {
+                const res = this.parseJsonTelemetry(trimmed);
+                if (res) return res;
+            }
+
+            // Check if text is Delimited / Key-Value
+            if (mode === 'AUTO' || mode === 'DELIMITED' || mode === 'KEYVALUE') {
+                const res = this.parseKeyValueOrCsv(trimmed);
+                if (res) return res;
+            }
+
+            // Try parsing as Hex string for binary protocols
+            bytes = this.parseHexBytes(trimmed);
+        }
+
+        if (bytes && bytes.length >= 4) {
+            // CRSF Detection (Sync 0xC8, 0xEE, 0xEA)
+            if ((mode === 'AUTO' || mode === 'CRSF') && (bytes[0] === 0xC8 || bytes[0] === 0xEE || bytes[0] === 0xEA)) {
+                const crsf = this.parseCrsfTelemetry(bytes);
+                if (crsf) return crsf;
+            }
+
+            // MAVLink Detection (Sync 0xFE for v1 or 0xFD for v2)
+            if ((mode === 'AUTO' || mode === 'MAVLINK') && (bytes[0] === 0xFE || bytes[0] === 0xFD)) {
+                const mav = this.parseMavlinkTelemetry(bytes);
+                if (mav) return mav;
+            }
+
+            // MSP Detection (Sync '$', 'M', '>')
+            if ((mode === 'AUTO' || mode === 'MSP') && bytes[0] === 0x24 && bytes[1] === 0x4D && bytes[2] === 0x3E) {
+                const msp = this.parseMspTelemetry(bytes);
+                if (msp) return msp;
+            }
+        }
+
+        return null;
+    },
+
+    parseJsonTelemetry(str) {
+        try {
+            const data = JSON.parse(str);
+            if (typeof data !== 'object' || data === null) return null;
+
+            const res = { hasData: true, protocol: 'JSON' };
+            if (data.voltage !== undefined) res.voltage = parseFloat(data.voltage);
+            else if (data.bat !== undefined) res.voltage = parseFloat(data.bat);
+            else if (data.batt !== undefined) res.voltage = parseFloat(data.batt);
+            else if (data.vbat !== undefined) res.voltage = parseFloat(data.vbat);
+            else if (data.v !== undefined) res.voltage = parseFloat(data.v);
+
+            if (data.percent !== undefined) res.percent = Math.round(data.percent);
+            else if (data.pct !== undefined) res.percent = Math.round(data.pct);
+            else if (data.soc !== undefined) res.percent = Math.round(data.soc);
+
+            if (data.current !== undefined) res.current = parseFloat(data.current);
+            else if (data.cur !== undefined) res.current = parseFloat(data.cur);
+            else if (data.amp !== undefined) res.current = parseFloat(data.amp);
+
+            if (data.capacity !== undefined) res.capacity = parseFloat(data.capacity);
+            else if (data.mah !== undefined) res.capacity = parseFloat(data.mah);
+
+            if (data.altitude !== undefined) res.altitude = parseFloat(data.altitude);
+            else if (data.alt !== undefined) res.altitude = parseFloat(data.alt);
+
+            if (data.climb !== undefined) res.climbRate = parseFloat(data.climb);
+            else if (data.vario !== undefined) res.climbRate = parseFloat(data.vario);
+
+            if (data.speed !== undefined) res.speed = parseFloat(data.speed);
+            else if (data.spd !== undefined) res.speed = parseFloat(data.spd);
+            else if (data.vel !== undefined) res.speed = parseFloat(data.vel);
+
+            if (data.satellites !== undefined) res.satellites = parseInt(data.satellites);
+            else if (data.sats !== undefined) res.satellites = parseInt(data.sats);
+
+            if (data.fix !== undefined) res.fix = data.fix;
+            if (data.lat !== undefined) res.lat = parseFloat(data.lat);
+            if (data.lon !== undefined) res.lon = parseFloat(data.lon);
+            else if (data.lng !== undefined) res.lon = parseFloat(data.lng);
+
+            if (data.rssi !== undefined) res.rssi = parseFloat(data.rssi);
+            if (data.lq !== undefined) res.lq = Math.round(data.lq);
+            if (data.snr !== undefined) res.snr = parseFloat(data.snr);
+            if (data.heading !== undefined) res.heading = parseFloat(data.heading);
+            else if (data.hdg !== undefined) res.heading = parseFloat(data.hdg);
+
+            if (data.mode !== undefined) res.flightMode = data.mode;
+            if (data.armed !== undefined) res.armed = !!data.armed;
+            if (data.temp !== undefined) res.temp = parseFloat(data.temp);
+            if (data.alert !== undefined) res.rawAlert = data.alert;
+
+            // Only return if it actually looks like telemetry
+            if (res.voltage !== undefined || res.altitude !== undefined || res.speed !== undefined || res.satellites !== undefined || res.rssi !== undefined) {
+                return res;
+            }
+        } catch (e) {}
+        return null;
+    },
+
+    parseKeyValueOrCsv(str) {
+        if (!str || str.length < 3) return null;
+        const clean = str.replace(/[\r\n]/g, '').trim();
+
+        // 1. Delimited CSV: TELEM,12.4,85,45.2,32.1,14,-68,100
+        if (clean.toUpperCase().startsWith('TELEM,') || clean.toUpperCase().startsWith('TLM,')) {
+            const parts = clean.split(',');
+            if (parts.length >= 3) {
+                const res = { hasData: true, protocol: 'CSV' };
+                if (parts[1] && !isNaN(parts[1])) res.voltage = parseFloat(parts[1]);
+                if (parts[2] && !isNaN(parts[2])) res.percent = Math.round(parts[2]);
+                if (parts[3] && !isNaN(parts[3])) res.altitude = parseFloat(parts[3]);
+                if (parts[4] && !isNaN(parts[4])) res.speed = parseFloat(parts[4]);
+                if (parts[5] && !isNaN(parts[5])) res.satellites = parseInt(parts[5]);
+                if (parts[6] && !isNaN(parts[6])) res.rssi = parseFloat(parts[6]);
+                if (parts[7] && !isNaN(parts[7])) res.lq = Math.round(parts[7]);
+                return res;
+            }
+        }
+
+        // 2. Key-Value pairs: BAT:12.4,ALT:45.2,SPD:32,SATS:14,RSSI:-68,LQ:99
+        if (clean.includes(':') || clean.includes('=')) {
+            const tokens = clean.split(/[,;\s]+/);
+            const res = { hasData: true, protocol: 'KEY-VALUE' };
+            let matchedKeys = 0;
+
+            tokens.forEach(tok => {
+                const sep = tok.includes(':') ? ':' : '=';
+                const [k, v] = tok.split(sep);
+                if (!k || v === undefined) return;
+                const key = k.trim().toUpperCase();
+                const val = v.trim();
+                const num = parseFloat(val);
+
+                if (['BAT', 'BATT', 'VOLT', 'VBAT', 'V'].includes(key) && !isNaN(num)) {
+                    res.voltage = num; matchedKeys++;
+                } else if (['PCT', 'SOC', 'PERC'].includes(key) && !isNaN(num)) {
+                    res.percent = Math.round(num); matchedKeys++;
+                } else if (['CUR', 'AMP', 'CURRENT', 'A'].includes(key) && !isNaN(num)) {
+                    res.current = num; matchedKeys++;
+                } else if (['MAH', 'CAP'].includes(key) && !isNaN(num)) {
+                    res.capacity = num; matchedKeys++;
+                } else if (['ALT', 'ALTITUDE', 'H'].includes(key) && !isNaN(num)) {
+                    res.altitude = num; matchedKeys++;
+                } else if (['SPD', 'SPEED', 'VEL', 'S'].includes(key) && !isNaN(num)) {
+                    res.speed = num; matchedKeys++;
+                } else if (['SATS', 'SAT', 'GPS'].includes(key) && !isNaN(num)) {
+                    res.satellites = Math.round(num); matchedKeys++;
+                } else if (['RSSI', 'SIG'].includes(key) && !isNaN(num)) {
+                    res.rssi = num; matchedKeys++;
+                } else if (['LQ'].includes(key) && !isNaN(num)) {
+                    res.lq = Math.round(num); matchedKeys++;
+                } else if (['HDG', 'HEAD'].includes(key) && !isNaN(num)) {
+                    res.heading = num; matchedKeys++;
+                } else if (['LAT'].includes(key) && !isNaN(num)) {
+                    res.lat = num; matchedKeys++;
+                } else if (['LON', 'LNG'].includes(key) && !isNaN(num)) {
+                    res.lon = num; matchedKeys++;
+                } else if (['MODE'].includes(key)) {
+                    res.flightMode = val; matchedKeys++;
+                } else if (['ARM', 'ARMED'].includes(key)) {
+                    res.armed = (val === '1' || val.toUpperCase() === 'TRUE'); matchedKeys++;
+                } else if (['ALERT', 'WARN'].includes(key)) {
+                    res.rawAlert = val; matchedKeys++;
+                }
+            });
+
+            if (matchedKeys >= 1 && (res.voltage !== undefined || res.altitude !== undefined || res.speed !== undefined || res.satellites !== undefined || res.rssi !== undefined)) {
+                return res;
+            }
+        }
+
+        return null;
+    },
+
+    parseCrsfTelemetry(bytes) {
+        if (!bytes || bytes.length < 4) return null;
+        const len = bytes[1];
+        const type = bytes[2];
+        const payload = bytes.slice(3, 3 + len - 2);
+        const res = { hasData: true, protocol: 'CRSF' };
+
+        // 0x08: CRSF_FRAMETYPE_BATTERY_SENSOR
+        if (type === 0x08 && payload.length >= 8) {
+            const vRaw = (payload[0] << 8) | payload[1];
+            const cRaw = (payload[2] << 8) | payload[3];
+            const capRaw = (payload[4] << 16) | (payload[5] << 8) | payload[6];
+            const remPct = payload[7];
+
+            res.voltage = vRaw / 10.0;
+            res.current = cRaw / 10.0;
+            res.capacity = capRaw;
+            res.percent = remPct;
+            return res;
+        }
+
+        // 0x14: CRSF_FRAMETYPE_LINK_STATISTICS
+        if (type === 0x14 && payload.length >= 7) {
+            res.rssi = -payload[0]; // Uplink RSSI 1 (dBm)
+            res.rssi2 = -payload[1];
+            res.lq = payload[2]; // Uplink LQ %
+            res.snr = (payload[3] << 24) >> 24; // Signed int8 SNR
+            return res;
+        }
+
+        // 0x02: CRSF_FRAMETYPE_GPS
+        if (type === 0x02 && payload.length >= 15) {
+            const rawLat = (payload[0] << 24) | (payload[1] << 16) | (payload[2] << 8) | payload[3];
+            const rawLon = (payload[4] << 24) | (payload[5] << 16) | (payload[6] << 8) | payload[7];
+            const rawSpd = (payload[8] << 8) | payload[9];
+            const rawHdg = (payload[10] << 8) | payload[11];
+            const rawAlt = (payload[12] << 8) | payload[13];
+            const sats = payload[14];
+
+            res.lat = rawLat / 1e7;
+            res.lon = rawLon / 1e7;
+            res.speed = rawSpd / 10.0; // km/h
+            res.heading = rawHdg / 100.0; // deg
+            res.altitude = rawAlt - 1000.0; // m
+            res.satellites = sats;
+            res.fix = sats >= 4 ? '3D Fix' : (sats > 0 ? '2D Fix' : 'No Fix');
+            return res;
+        }
+
+        // 0x07: CRSF_FRAMETYPE_VARIO
+        if (type === 0x07 && payload.length >= 2) {
+            const vspd = ((payload[0] << 8) | payload[1]) << 16 >> 16;
+            res.climbRate = vspd / 100.0; // cm/s -> m/s
+            return res;
+        }
+
+        // 0x21: CRSF_FRAMETYPE_FLIGHT_MODE
+        if (type === 0x21 && payload.length >= 1) {
+            let modeStr = '';
+            for (let i = 0; i < payload.length; i++) {
+                if (payload[i] === 0) break;
+                modeStr += String.fromCharCode(payload[i]);
+            }
+            res.flightMode = modeStr.trim();
+            return res;
+        }
+
+        return null;
+    },
+
+    parseMavlinkTelemetry(bytes) {
+        if (!bytes || bytes.length < 6) return null;
+        const isV1 = bytes[0] === 0xFE;
+        const isV2 = bytes[0] === 0xFD;
+        if (!isV1 && !isV2) return null;
+
+        const payloadLen = bytes[1];
+        let msgId = 0;
+        let payloadStart = 6;
+
+        if (isV1) {
+            msgId = bytes[5];
+            payloadStart = 6;
+        } else {
+            msgId = bytes[7] | (bytes[8] << 8) | (bytes[9] << 16);
+            payloadStart = 10;
+        }
+
+        if (bytes.length <= payloadStart) return null;
+        const p = bytes.slice(payloadStart, payloadStart + payloadLen);
+        const res = { hasData: true, protocol: isV1 ? 'MAVLink v1' : 'MAVLink v2' };
+
+        // Msg #0: HEARTBEAT
+        if (msgId === 0 && p.length >= 6) {
+            const baseMode = p[5];
+            res.armed = (baseMode & 128) !== 0;
+            return res;
+        }
+
+        // Msg #1: SYS_STATUS
+        if (msgId === 1 && p.length >= 19) {
+            const vMv = (p[14]) | (p[15] << 8);
+            const cCa = (p[16]) | (p[17] << 8);
+            const remPct = (p[18] << 24) >> 24; // signed char
+            res.voltage = vMv / 1000.0;
+            if (cCa > 0) res.current = cCa / 100.0;
+            if (remPct >= 0) res.percent = remPct;
+            return res;
+        }
+
+        // Msg #24: GPS_RAW_INT
+        if (msgId === 24 && p.length >= 30) {
+            const fixType = p[8];
+            const latRaw = (p[9] | (p[10] << 8) | (p[11] << 16) | (p[12] << 24)) << 0;
+            const lonRaw = (p[13] | (p[14] << 8) | (p[15] << 16) | (p[16] << 24)) << 0;
+            const altRaw = (p[17] | (p[18] << 8) | (p[19] << 16) | (p[20] << 24)) << 0;
+            const sats = p[29];
+
+            res.lat = latRaw / 1e7;
+            res.lon = lonRaw / 1e7;
+            res.altitude = altRaw / 1000.0;
+            res.satellites = sats;
+            res.fix = fixType >= 3 ? '3D Fix' : (fixType === 2 ? '2D Fix' : 'No Fix');
+            return res;
+        }
+
+        // Msg #74: VFR_HUD
+        if (msgId === 74 && p.length >= 20) {
+            // Airspeed, Groundspeed, Heading, Throttle, Alt, Climb
+            const view = new DataView(p.buffer, p.byteOffset, p.byteLength);
+            const groundspeed = view.getFloat32(4, true);
+            const heading = view.getInt16(8, true);
+            const alt = view.getFloat32(12, true);
+            const climb = view.getFloat32(16, true);
+
+            res.speed = groundspeed * 3.6; // m/s to km/h
+            res.heading = heading;
+            res.altitude = alt;
+            res.climbRate = climb;
+            return res;
+        }
+
+        return null;
+    },
+
+    parseMspTelemetry(bytes) {
+        if (!bytes || bytes.length < 6) return null;
+        if (bytes[0] !== 0x24 || bytes[1] !== 0x4D || bytes[2] !== 0x3E) return null;
+        const size = bytes[3];
+        const cmd = bytes[4];
+        const p = bytes.slice(5, 5 + size);
+        const res = { hasData: true, protocol: 'MSP' };
+
+        // Cmd 110: MSP_ANALOG
+        if (cmd === 110 && p.length >= 7) {
+            res.voltage = p[0] / 10.0;
+            res.capacity = p[1] | (p[2] << 8);
+            const rawRssi = p[3] | (p[4] << 8);
+            res.rssi = Math.round(((rawRssi / 1023) * 100) - 100); // approx dBm
+            res.lq = Math.round(Math.min(100, (rawRssi / 1023) * 100));
+            res.current = (p[5] | (p[6] << 8)) / 100.0;
+            return res;
+        }
+
+        // Cmd 106: MSP_RAW_GPS
+        if (cmd === 106 && p.length >= 16) {
+            res.fix = p[0] > 0 ? '3D Fix' : 'No Fix';
+            res.satellites = p[1];
+            const lat = (p[2] | (p[3] << 8) | (p[4] << 16) | (p[5] << 24)) << 0;
+            const lon = (p[6] | (p[7] << 8) | (p[8] << 16) | (p[9] << 24)) << 0;
+            res.lat = lat / 1e7;
+            res.lon = lon / 1e7;
+            res.altitude = (p[10] | (p[11] << 8));
+            res.speed = ((p[12] | (p[13] << 8)) / 100.0) * 3.6; // cm/s to km/h
+            res.heading = (p[14] | (p[15] << 8)) / 10.0;
+            return res;
+        }
+
+        // Cmd 109: MSP_ALTITUDE
+        if (cmd === 109 && p.length >= 6) {
+            const alt = (p[0] | (p[1] << 8) | (p[2] << 16) | (p[3] << 24)) << 0;
+            const vario = ((p[4] | (p[5] << 8)) << 16) >> 16;
+            res.altitude = alt / 100.0;
+            res.climbRate = vario / 100.0;
+            return res;
+        }
+
+        return null;
     }
 };
