@@ -67,14 +67,14 @@ flowchart TD
     MCU --> Motors
 
     %% Fluxo de Telemetria Reversa
-    MCU -. Telemetria / Respostas .-> Antenna
-    Antenna -. Recebimento de Pacotes .-> NetCtrl
-    Antenna -. Recebimento Serial .-> BtClassic
-    Antenna -. Notificações GATT .-> BtBle
-    NetCtrl -. evaluateJavascript .-> BridgeInt
-    BtClassic -. evaluateJavascript .-> BridgeInt
-    BtBle -. evaluateJavascript .-> BridgeInt
-    BridgeInt -. window.onNativeData .-> UI
+    MCU -.->|"Telemetria / Respostas"| Antenna
+    Antenna -.->|"Recebimento de Pacotes"| NetCtrl
+    Antenna -.->|"Recebimento Serial"| BtClassic
+    Antenna -.->|"Notificações GATT"| BtBle
+    NetCtrl -.->|"evaluateJavascript"| BridgeInt
+    BtClassic -.->|"evaluateJavascript"| BridgeInt
+    BtBle -.->|"evaluateJavascript"| BridgeInt
+    BridgeInt -.->|"window.onNativeData"| UI
 ```
 
 ### Telemetria Bidirecional
@@ -329,7 +329,7 @@ O OmniRC v1.3.0 permite salvar a calibração completa e configurações de múl
 flowchart LR
     App["OmniRC App"] -->|"Exportar Perfil"| JSON["Arquivo .json\n(Perfil Completo)"]
     JSON -->|"Importar Perfil"| App
-    JSON -. Compartilhamento .-> Cloud["Google Drive / WhatsApp / GitHub"]
+    JSON -.->|"Compartilhamento"| Cloud["Google Drive / WhatsApp / GitHub"]
 ```
 
 ### 📦 O Que é Salvo no Perfil:
@@ -512,8 +512,9 @@ flowchart TD
     end
     
     Gamepad --> App
-    App <-->|"Controle & Telemetria Bidirecional"| NetSim
-    NetSim <--> Physics
+    App -->|"Comandos de Controle"| NetSim
+    NetSim -->|"Telemetria Reversa"| App
+    NetSim --> Physics
     Physics --> WebDash
 ```
 
